@@ -3,23 +3,68 @@ service cloud.firestore {
  match /databases/{database}/documents {
   function signed() { return request.auth != null; }
   function admin() { return signed() && request.auth.uid == 'mcS8mHznpaQm5qSk0mXEbfuiBWH3'; }
-  function email() { return signed() && request.auth.token.email != null && request.auth.token.email_verified != null ? request.auth.token.email : (signed() ? request.auth.token.email : ''); }
-  function invited() { return signed() && exists(/databases/$(database)/documents/invitations/$(request.auth.token.email)); }
+  function own(uid) { return signed() && request.auth.uid == uid; }
+  function profile(uid) { return get(/databases/$(database)/documents/profiles/$(uid)).data; }
+  function activeChild(uid) { return exists(/databases/$(database)/documents/profiles/$(uid)) && profile(uid).role == 'child' && profile(uid).status == 'active'; }
+  function guardianOf(uid) { return signed() && activeChild(uid) && request.auth.uid in profile(uid).guardianIds && exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) && profile(request.auth.uid).role == 'guardian' && profile(request.auth.uid).status == 'active'; }
+  function adultFor(uid) { return admin() || guardianOf(uid); }
+  function invited() { return signed() && request.auth.token.email != null && exists(/databases/$(database)/documents/invitations/$(request.auth.token.email)); }
   match /invitations/{address} {
    allow read: if admin() || (signed() && request.auth.token.email == address);
    allow write: if admin();
   }
   match /profiles/{uid} {
-   allow read: if admin() || (signed() && request.auth.uid == uid);
-   allow create: if admin() || (signed() && request.auth.uid == uid && invited()
+   allow get: if admin() || own(uid) || guardianOf(uid);
+   allow list: if admin() || (signed() && resource.data.role == 'child' && request.auth.uid in resource.data.guardianIds);
+   allow create: if admin() || (own(uid) && invited()
      && request.resource.data.keys().hasOnly(['name','email','role','status','guardianIds','balance','createdAt'])
      && request.resource.data.email == request.auth.token.email
      && request.resource.data.name == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.name
      && request.resource.data.role == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.role
      && request.resource.data.guardianIds == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.guardianIds
-     && request.resource.data.status == 'pending'
-     && request.resource.data.balance == 0);
+     && request.resource.data.status == 'pending' && request.resource.data.balance == 0);
    allow update, delete: if admin();
+  }
+  match /tasks/{id} {
+   allow get, list: if admin() || (signed() && (own(resource.data.childId) || guardianOf(resource.data.childId)));
+   allow create: if adultFor(request.resource.data.childId) && activeChild(request.resource.data.childId)
+     && request.resource.data.keys().hasOnly(['title','description','category','period','points','frequency','deadline','childId','createdBy','createdAt'])
+     && request.resource.data.createdBy == request.auth.uid
+     && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
+     && request.resource.data.description is string && request.resource.data.description.size() <= 600
+     && request.resource.data.category in ['Responsabilidade','Tarefa doméstica']
+     && request.resource.data.period in ['Manhã','Depois da escola','Noite','Outro']
+     && request.resource.data.points is int && request.resource.data.points >= 1 && request.resource.data.points <= 500
+     && request.resource.data.frequency in ['daily','weekly','once']
+     && request.resource.data.deadline is string && request.resource.data.createdAt == request.time;
+   allow update, delete: if false;
+  }
+  match /claims/{id} {
+   allow get, list: if admin() || (signed() && (own(resource.data.childId) || guardianOf(resource.data.childId)));
+   allow create: if signed() && own(request.resource.data.childId) && activeChild(request.auth.uid)
+     && request.resource.data.keys().hasOnly(['taskId','childId','periodKey','periodStart','points','status','submittedAt'])
+     && exists(/databases/$(database)/documents/tasks/$(request.resource.data.taskId))
+     && get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.childId == request.auth.uid
+     && request.resource.data.points == get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.points
+     && request.resource.data.status == 'pending' && request.resource.data.submittedAt == request.time
+     && id == request.resource.data.taskId + '_' + request.auth.uid + '_' + request.resource.data.periodKey
+     && validPeriod(request.resource.data.periodKey, request.resource.data.periodStart, get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.frequency);
+   allow update: if (adultFor(resource.data.childId) && resource.data.status == 'pending'
+     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
+     && request.resource.data.status in ['approved','rejected']
+     && request.resource.data.reviewedBy == request.auth.uid && request.resource.data.reviewedAt == request.time)
+     || (own(resource.data.childId) && resource.data.status == 'rejected'
+       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','submittedAt'])
+       && request.resource.data.status == 'pending' && request.resource.data.submittedAt == request.time
+       && validPeriod(resource.data.periodKey, resource.data.periodStart, get(/databases/$(database)/documents/tasks/$(resource.data.taskId)).data.frequency));
+   allow delete: if false;
+  }
+  function validPeriod(key,start,freq) {
+   return (freq == 'once' && key == 'once' && start == null)
+    || (freq == 'daily' && start is timestamp && key is string && key.size() == 10
+      && request.time >= start && request.time < start + duration.value(1,'d'))
+    || (freq == 'weekly' && start is timestamp && key is string && key.size() == 10
+      && request.time >= start && request.time < start + duration.value(7,'d'));
   }
   match /{document=**} { allow read, write: if false; }
  }

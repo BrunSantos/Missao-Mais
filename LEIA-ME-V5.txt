@@ -1,0 +1,22 @@
+MISSÃO+ V5 — TAREFAS E PONTOS (BETA)
+
+1. Copia TODOS os ficheiros da pasta MissaoMais para a raiz do repositório GitHub (sem apagar .git).
+2. Firebase Console > Firestore Database > Regras: cola firestore.rules e publica.
+3. GitHub Desktop: Commit to main e Push origin.
+4. Abre a aplicação numa janela privada e confirma "Versão 5".
+
+FUNCIONALIDADES
+- Administrador e encarregados associados podem criar tarefas por filho, definir categoria, período, frequência, hora e pontos.
+- Filho marca como concluída; encarregado associado ou administrador aprova/rejeita.
+- Pontos são calculados a partir das tarefas aprovadas, não de um saldo editável.
+- Cada tarefa tem um pedido por dia UTC, semana UTC ou uma vez, com reenvio após rejeição.
+- A atribuição a vários filhos cria uma tarefa individual para cada um.
+- Recompensas continuam indisponíveis nesta fase.
+
+LIMITAÇÕES IMPORTANTES
+- Esta é uma versão beta para testes. As consultas dos encarregados a profiles devem incluir o filtro guardianIds array-contains UID; é necessário testar as regras no emulador Firebase antes de uso familiar real.
+- Não há rotação semanal automática, nem validação dos dias da semana e hora limite. A hora limite é apenas informativa.
+- A frequência usa períodos UTC, não meia-noite portuguesa durante a hora de verão.
+- Não há edição/apagamento de tarefas nesta versão.
+- Os pontos não são descontados; recompensas ficam bloqueadas.
+- Não partilhes passwords ou credenciais de service account no GitHub.

@@ -7,3 +7,7 @@
 .filterbar{display:grid;grid-template-columns:2fr 1fr;gap:12px}.filterbar label{margin:0}.task-card[hidden]{display:none!important}@media(max-width:650px){.filterbar{grid-template-columns:1fr}}
 
 #taskPreset{border:2px solid #126c62;background:#eaf7f1;font-weight:650;min-height:48px}#taskForm label:first-child{font-weight:700}
+
+#taskPresetGroup{border:2px solid #126c62;background:#eaf7f1;font-weight:650;min-height:48px}
+
+#taskPresetSearch{border:2px solid #126c62;background:#fff}#presetSearchCount{margin:5px 0 8px}

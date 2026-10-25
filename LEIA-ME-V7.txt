@@ -1,0 +1,12 @@
+Missão+ v7 — Tarefas predefinidas e recompensas
+
+1. Substitui os ficheiros do repositório pelos deste ZIP. Mantém a pasta .git local.
+2. Faz Commit e Push no GitHub Desktop.
+3. Publica firestore.rules na consola Firebase > Firestore > Regras.
+4. Atualiza a página com Cmd+Shift+R para limpar cache.
+5. Entra como encarregado ou administrador e abre Tarefas > Escolher tarefa predefinida.
+6. Em Recompensas cria um prémio; o filho pode pedi-lo e o encarregado aprova.
+
+ATENÇÃO: A validação de saldo de recompensas é feita na aplicação. Sem um backend transacional, aprovações simultâneas podem permitir saldo negativo; usar apenas em testes até reforçar essa garantia.
+
+Não foi realizado teste integrado com Firebase real.

@@ -71,6 +71,37 @@ service cloud.firestore {
     || (freq == 'weekly' && start is timestamp && key is string && key.size() == 10
       && request.time >= start && request.time < start + duration.value(7,'d'));
   }
+
+  match /rewards/{id} {
+   allow get, list: if admin() || (signed() && (own(resource.data.childId) || guardianOf(resource.data.childId)));
+   allow create: if adultFor(request.resource.data.childId) && activeChild(request.resource.data.childId)
+    && request.resource.data.keys().hasOnly(['title','description','cost','childId','active','createdBy','createdAt'])
+    && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
+    && request.resource.data.description is string && request.resource.data.description.size() <= 500
+    && request.resource.data.cost is int && request.resource.data.cost >= 1 && request.resource.data.cost <= 100000
+    && request.resource.data.active == true && request.resource.data.createdBy == request.auth.uid
+    && request.resource.data.createdAt == request.time;
+   allow update: if adultFor(resource.data.childId) && resource.data.active == true
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+    && request.resource.data.active == false;
+   allow delete: if false;
+  }
+  match /redemptions/{id} {
+   allow get, list: if admin() || (signed() && (own(resource.data.childId) || guardianOf(resource.data.childId)));
+   allow create: if signed() && own(request.resource.data.childId) && activeChild(request.auth.uid)
+    && request.resource.data.keys().hasOnly(['rewardId','childId','title','cost','status','requestedAt'])
+    && exists(/databases/$(database)/documents/rewards/$(request.resource.data.rewardId))
+    && get(/databases/$(database)/documents/rewards/$(request.resource.data.rewardId)).data.childId == request.auth.uid
+    && get(/databases/$(database)/documents/rewards/$(request.resource.data.rewardId)).data.active == true
+    && request.resource.data.title == get(/databases/$(database)/documents/rewards/$(request.resource.data.rewardId)).data.title
+    && request.resource.data.cost == get(/databases/$(database)/documents/rewards/$(request.resource.data.rewardId)).data.cost
+    && request.resource.data.status == 'pending' && request.resource.data.requestedAt == request.time;
+   allow update: if adultFor(resource.data.childId) && resource.data.status == 'pending'
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
+    && request.resource.data.status in ['approved','rejected']
+    && request.resource.data.reviewedBy == request.auth.uid && request.resource.data.reviewedAt == request.time;
+   allow delete: if false;
+  }
   match /{document=**} { allow read, write: if false; }
  }
 }

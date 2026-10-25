@@ -5,13 +5,15 @@ import {firebaseConfig,ADMIN_UID} from './firebase-settings-v3.js';
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').trim().toLowerCase();
-let user=null,profile=null,people=[],invites=[],tasks=[],claims=[],tab='inicio';
+let user=null,profile=null,people=[],invites=[],tasks=[],claims=[],rewards=[],redemptions=[],tab='inicio';
 const isAdmin=()=>user?.uid===ADMIN_UID;
 const notice=s=>{$('feedback').textContent=s};
 const personName=id=>people.find(p=>p.uid===id)?.name||'Conta pendente';
 const associated=id=>isAdmin()||(profile?.role==='guardian'&&profile?.status==='active'&&(people.some(p=>p.uid===id&&p.role==='child'&&(p.guardianIds||[]).includes(user.uid))));
 const myKids=()=>people.filter(p=>p.role==='child'&&p.status==='active'&&(isAdmin()||(p.guardianIds||[]).includes(user.uid)));
-const score=id=>claims.filter(c=>c.childId===id&&c.status==='approved').reduce((n,c)=>n+Number(c.points||0),0);
+const earned=id=>claims.filter(c=>c.childId===id&&c.status==='approved').reduce((n,c)=>n+Number(c.points||0),0);
+const spent=id=>redemptions.filter(r=>r.childId===id&&r.status==='approved').reduce((n,r)=>n+Number(r.cost||0),0);
+const score=id=>earned(id)-spent(id);
 const isoDay=d=>d.toISOString().slice(0,10);
 function period(t){const d=new Date(),start=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));if(t.frequency==='weekly')start.setUTCDate(start.getUTCDate()-(start.getUTCDay()+6)%7);return t.frequency==='once'?{key:'once',start:null}:{key:isoDay(start),start};}
 const taskTitle=id=>tasks.find(t=>t.id===id)?.title||'Tarefa';
@@ -34,7 +36,7 @@ async function load(){
   }else{people=profile?[profile]:[];invites=[];}
   const ids=isAdmin()?[]:profile?.role==='child'?[user.uid]:myKids().map(p=>p.uid);
   const fetch=async col=>isAdmin()?(await getDocs(collection(db,col))).docs.map(d=>({id:d.id,...d.data()})):(await Promise.all(ids.map(id=>getDocs(query(collection(db,col),where('childId','==',id)))))).flatMap(q=>q.docs.map(d=>({id:d.id,...d.data()})));
-  tasks=await fetch('tasks');claims=await fetch('claims');
+  tasks=await fetch('tasks');claims=await fetch('claims');rewards=await fetch('rewards');redemptions=await fetch('redemptions');
 }
 async function bootstrap(){
   if(isAdmin()){
@@ -53,10 +55,10 @@ function render(){
  $('login').hidden=!!user;$('workspace').hidden=!user;$('logout').hidden=!user;
  if(!user)return;
  $('identity').textContent=profile?.name||user.email;
- const allowed=isAdmin()?['inicio','pessoas','tarefas','aprovações','recompensas']:profile?.status==='active'&&profile?.role==='guardian'?['inicio','tarefas','aprovações']:profile?.status==='active'&&profile?.role==='child'?['inicio','tarefas']:['inicio'];
+ const allowed=isAdmin()?['inicio','pessoas','tarefas','aprovações','recompensas']:profile?.status==='active'&&profile?.role==='guardian'?['inicio','tarefas','aprovações','recompensas']:profile?.status==='active'&&profile?.role==='child'?['inicio','tarefas','recompensas']:['inicio'];
  if(!allowed.includes(tab))tab='inicio';
  $('tabs').innerHTML=allowed.map(t=>`<button class="${tab===t?'':'alt'}" data-tab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('');
- $('screen').innerHTML=tab==='pessoas'?members():tab==='inicio'?home():tab==='tarefas'?taskScreen():tab==='aprovações'?approvalScreen():`<h2>Recompensas</h2><p class="muted">Em preparação. Os pontos ainda não podem ser descontados.</p>`;
+ $('screen').innerHTML=tab==='pessoas'?members():tab==='inicio'?home():tab==='tarefas'?taskScreen():tab==='aprovações'?approvalScreen():rewardScreen();
 }
 function home(){
  if(!isAdmin())return `<h2>Bem-vindo à Missão+</h2><p>${!profile?'Ainda não existe um convite para este email. Pede ao administrador que te adicione.':profile.status==='pending'?'A tua conta foi criada. Aguarda a autorização do administrador.':profile.role==='guardian'?'Conta de encarregado ativa. Já podes criar e aprovar tarefas dos filhos associados.':'Conta de filho ativa. Já podes consultar e submeter as tuas missões.'}</p>${profile?.role==='child'?`<div class="points">${score(user.uid)} ⭐ pontos aprovados</div>`:''}${profile?.role==='guardian'?`<div class="grid">${myKids().map(k=>`<article class="card"><h3>${esc(k.name)}</h3><div class="points">${score(k.uid)} ⭐</div></article>`).join('')}</div>`:''}`;
@@ -78,7 +80,7 @@ function members(){
 function taskScreen(){
  const adult=isAdmin()||profile?.role==='guardian',kids=myKids();
  const presets=PRESETS.map((t,i)=>`<option value="${i}">${esc(t[0])}</option>`).join('');
- const form=adult?`<article class="card"><h3>Nova tarefa</h3><form id="taskForm"><label>Escolher tarefa predefinida<select name="preset" id="taskPreset"><option value="custom">✏️ Outra tarefa (escrever nome)</option>${presets}</select></label><label>Nome da tarefa<input name="title" id="taskTitle" required maxlength="120" placeholder="Escreve uma tarefa personalizada"></label><label>Descrição<textarea name="description" maxlength="600" placeholder="Instruções opcionais"></textarea></label><label>Tipo<select name="category" id="taskCategory"><option value="Responsabilidade">Responsabilidade diária</option><option value="Tarefa doméstica">Tarefa doméstica</option></select></label><label>Período<select name="period" id="taskPeriod"><option>Manhã</option><option>Depois da escola</option><option>Noite</option><option>Outro</option></select></label><label>Pontos<input name="points" id="taskPoints" type="number" min="1" max="500" required value="10"></label><label>Frequência<select name="frequency" id="taskFrequency"><option value="daily">Diária</option><option value="weekly">Semanal</option><option value="once">Pontual</option></select></label><label>Hora limite (opcional)<input name="deadline" type="time"></label><fieldset><legend>Filhos associados</legend>${kids.map(k=>`<label class="check"><input type="checkbox" name="child" value="${esc(k.uid)}">${esc(k.name)}</label>`).join('')||'<p>Primeiro associa um filho ativo.</p>'}</fieldset><button>Criar tarefa</button></form></article>`:'';
+ const form=adult?`<article class="card"><h3>Nova tarefa</h3><p class="muted">Abre a lista abaixo para escolher uma das 24 sugestões. Também podes selecionar «Outra tarefa».</p><form id="taskForm"><label>Escolher tarefa predefinida<select name="preset" id="taskPreset"><option value="" disabled selected>Seleciona uma das 24 tarefas…</option>${presets}<option value="custom">✏️ Outra tarefa — escrever nome</option></select></label><label>Nome da tarefa (podes editar)<input name="title" id="taskTitle" required maxlength="120" placeholder="Escreve uma tarefa personalizada"></label><label>Descrição<textarea name="description" maxlength="600" placeholder="Instruções opcionais"></textarea></label><label>Tipo<select name="category" id="taskCategory"><option value="Responsabilidade">Responsabilidade diária</option><option value="Tarefa doméstica">Tarefa doméstica</option></select></label><label>Período<select name="period" id="taskPeriod"><option>Manhã</option><option>Depois da escola</option><option>Noite</option><option>Outro</option></select></label><label>Pontos<input name="points" id="taskPoints" type="number" min="1" max="500" required value="10"></label><label>Frequência<select name="frequency" id="taskFrequency"><option value="daily">Diária</option><option value="weekly">Semanal</option><option value="once">Pontual</option></select></label><label>Hora limite (opcional)<input name="deadline" type="time"></label><fieldset><legend>Filhos associados</legend>${kids.map(k=>`<label class="check"><input type="checkbox" name="child" value="${esc(k.uid)}">${esc(k.name)}</label>`).join('')||'<p>Primeiro associa um filho ativo.</p>'}</fieldset><button>Criar tarefa</button></form></article>`:'';
  const visible=tasks.filter(t=>adult?kids.some(k=>k.uid===t.childId):t.childId===user.uid);
  return `<h2>Tarefas e responsabilidades</h2><p class="muted">Escolhe uma sugestão ou escreve a tua própria tarefa. Os pontos só contam depois da aprovação.</p>${form}<article class="card"><div class="filterbar"><label>Pesquisar tarefas<input id="taskSearch" type="search" placeholder="Nome ou descrição"></label><label>Mostrar<select id="taskStatusFilter"><option value="active">Ativas</option><option value="archived">Arquivadas</option><option value="all">Todas</option></select></label></div><p class="muted" id="taskCount"></p></article><div class="grid" id="taskList">${visible.map(t=>{const per=period(t),claim=claims.find(c=>c.taskId===t.id&&c.childId===t.childId&&c.periodKey===per.key);return `<article class="card task-card" data-search="${esc((t.title+' '+(t.description||'')+' '+personName(t.childId)).toLowerCase())}" data-active="${activeTask(t)?'yes':'no'}"><div class="row"><h3>${esc(t.title)}</h3><span class="pill">${Number(t.points)} ⭐</span></div><p>${esc(t.description||'')}</p><p class="muted">${esc(t.category)} · ${esc(t.period)} · ${esc(t.frequency==='daily'?'Diária':t.frequency==='weekly'?'Semanal':'Pontual')}${t.deadline?' · até '+esc(t.deadline):''}</p>${adult?`<p>Para: ${esc(personName(t.childId))}</p><p class="muted">${activeTask(t)?'Ativa':'Arquivada'}</p>${activeTask(t)?`<button class="alt" data-action="archiveTask" data-id="${esc(t.id)}">Arquivar tarefa</button>`:''}`:`<p>${claim?'Estado: '+(claim.status==='pending'?'A aguardar aprovação':claim.status==='approved'?'Aprovada':'Rejeitada — podes tentar novamente'):'Ainda não submetida'}</p>${activeTask(t)&&(!claim||claim.status==='rejected')?`<button data-action="submitTask" data-id="${esc(t.id)}">Marcar como concluída</button>`:''}`}</article>`}).join('')}</div>`;
 }
@@ -87,7 +89,7 @@ function applyTaskFilters(){
  document.querySelectorAll('.task-card').forEach(card=>{const active=card.dataset.active==='yes',show=(!search||card.dataset.search.includes(search))&&(filter==='all'||(filter==='active'?active:!active));card.hidden=!show;if(show)count++;});
  if($('taskCount'))$('taskCount').textContent=count+' tarefa(s) encontrada(s)';
 }
-function applyPreset(){const idx=$('taskPreset')?.value;if(idx==null)return;if(idx==='custom'){$('taskTitle').value='';$('taskTitle').focus();return;}const t=PRESETS[Number(idx)];if(!t)return;$('taskTitle').value=t[0];$('taskCategory').value=t[1];$('taskPeriod').value=t[2];$('taskPoints').value=t[3];$('taskFrequency').value=t[4];}
+function applyPreset(){const idx=$('taskPreset')?.value;if(idx==null||idx==='')return;if(idx==='custom'){$('taskTitle').value='';$('taskTitle').focus();return;}const t=PRESETS[Number(idx)];if(!t)return;$('taskTitle').value=t[0];$('taskCategory').value=t[1];$('taskPeriod').value=t[2];$('taskPoints').value=t[3];$('taskFrequency').value=t[4];}
 function approvalScreen(){
  if(!(isAdmin()||profile?.role==='guardian'))return '<p>Sem acesso.</p>';
  const accessible=claims.filter(c=>myKids().some(k=>k.uid===c.childId));
@@ -115,6 +117,42 @@ async function taskAction(action,id){
  await load();render();if(tab==='tarefas')applyTaskFilters();notice('Alteração guardada.');
 }
 
+
+function rewardScreen(){
+ const adult=isAdmin()||profile?.role==='guardian',kids=myKids();
+ const form=adult?`<article class="card"><h3>Nova recompensa</h3><form id="rewardForm"><label>Nome da recompensa<input name="title" required maxlength="120" placeholder="Ex.: Escolher o filme da noite"></label><label>Descrição (opcional)<textarea name="description" maxlength="500"></textarea></label><label>Custo em pontos<input name="cost" type="number" min="1" max="100000" value="50" required></label><fieldset><legend>Disponível para</legend>${kids.map(k=>`<label class="check"><input type="checkbox" name="child" value="${esc(k.uid)}">${esc(k.name)}</label>`).join('')||'<p>Associa primeiro um filho.</p>'}</fieldset><button>Criar recompensa</button></form></article>`:'';
+ const accessible=rewards.filter(r=>adult?kids.some(k=>k.uid===r.childId):r.childId===user.uid);
+ const pending=redemptions.filter(r=>r.status==='pending'&&(adult?kids.some(k=>k.uid===r.childId):r.childId===user.uid));
+ const cards=accessible.map(r=>{const req=redemptions.find(x=>x.rewardId===r.id&&x.childId===r.childId&&x.status==='pending');return `<article class="card"><h3>${esc(r.title)}</h3><p>${esc(r.description||'')}</p><div class="points">${Number(r.cost)} ⭐</div><p class="muted">${esc(personName(r.childId))} · ${r.active===false?'Arquivada':'Disponível'}</p>${adult?(r.active!==false?`<button class="alt" data-action="archiveReward" data-id="${esc(r.id)}">Arquivar</button>`:''):(r.active!==false?`<button data-action="requestReward" data-id="${esc(r.id)}" ${req||score(user.uid)<r.cost?'disabled':''}>${req?'Pedido pendente':score(user.uid)<r.cost?'Pontos insuficientes':'Pedir recompensa'}</button>`:'')}</article>`}).join('');
+ const approvals=adult?`<h3>Pedidos de recompensa pendentes (${pending.length})</h3><div class="grid">${pending.map(r=>`<article class="card"><b>${esc(r.title)}</b><p>${esc(personName(r.childId))} · ${Number(r.cost)} ⭐ · Saldo atual: ${score(r.childId)} ⭐</p><div class="login-actions"><button data-action="approveReward" data-id="${esc(r.id)}">Aprovar</button><button class="red" data-action="rejectReward" data-id="${esc(r.id)}">Rejeitar</button></div></article>`).join('')||'<p>Não existem pedidos pendentes.</p>'}</div>`:'';
+ const history=redemptions.filter(r=>r.status!=='pending'&&(adult?kids.some(k=>k.uid===r.childId):r.childId===user.uid)).sort((a,b)=>(b.reviewedAt?.seconds||0)-(a.reviewedAt?.seconds||0)).slice(0,30);
+ return `<h2>Recompensas</h2><p class="muted">Os filhos pedem recompensas com os pontos acumulados. Só são descontados após aprovação.</p>${!adult?`<div class="points">Saldo: ${score(user.uid)} ⭐</div>`:''}${form}<h3>Catálogo</h3><div class="grid">${cards||'<p>Ainda não existem recompensas.</p>'}</div>${approvals}<h3>Histórico de recompensas</h3><div class="grid">${history.map(r=>`<article class="card"><b>${esc(r.title)}</b><p>${esc(personName(r.childId))} · ${r.cost} ⭐ · ${r.status==='approved'?'Aprovada':'Rejeitada'}</p></article>`).join('')||'<p>Sem histórico.</p>'}</div>`;
+}
+async function createReward(form){
+ if(!(isAdmin()||profile?.role==='guardian'))throw Error('Sem autorização.');
+ const f=new FormData(form),ids=f.getAll('child'),title=String(f.get('title')||'').trim(),description=String(f.get('description')||'').trim(),cost=Number(f.get('cost'));
+ if(!title||title.length>120||description.length>500||!Number.isInteger(cost)||cost<1||cost>100000)throw Error('Verifica os dados da recompensa.');
+ if(!ids.length||ids.some(id=>!myKids().some(k=>k.uid===id)))throw Error('Seleciona pelo menos um filho associado.');
+ for(const childId of ids)await setDoc(doc(collection(db,'rewards')),{title,description,cost,childId,active:true,createdBy:user.uid,createdAt:serverTimestamp()});
+ await load();render();notice('Recompensa criada.');
+}
+async function rewardAction(action,id){
+ if(action==='requestReward'){
+  const r=rewards.find(r=>r.id===id);if(!r||r.active===false||profile?.role!=='child'||r.childId!==user.uid)throw Error('Recompensa indisponível.');
+  if(score(user.uid)<r.cost)throw Error('Pontos insuficientes.');
+  if(redemptions.some(x=>x.rewardId===id&&x.childId===user.uid&&x.status==='pending'))throw Error('Já tens um pedido pendente.');
+  await setDoc(doc(collection(db,'redemptions')),{rewardId:id,childId:user.uid,title:r.title,cost:r.cost,status:'pending',requestedAt:serverTimestamp()});
+ }else if(action==='archiveReward'){
+  const r=rewards.find(r=>r.id===id);if(!r||r.active===false||!(isAdmin()||myKids().some(k=>k.uid===r.childId)))throw Error('Sem autorização.');
+  await updateDoc(doc(db,'rewards',id),{active:false});
+ }else{
+  const r=redemptions.find(r=>r.id===id);if(!r||r.status!=='pending'||!myKids().some(k=>k.uid===r.childId))throw Error('Pedido não disponível.');
+  if(action==='approveReward'&&score(r.childId)<r.cost)throw Error('Saldo insuficiente para aprovar.');
+  await runTransaction(db,async tx=>{const ref=doc(db,'redemptions',id),snap=await tx.get(ref);if(!snap.exists()||snap.data().status!=='pending')throw Error('Pedido já tratado.');tx.update(ref,{status:action==='approveReward'?'approved':'rejected',reviewedBy:user.uid,reviewedAt:serverTimestamp()});});
+ }
+ await load();render();notice('Recompensa atualizada.');
+}
+
 async function invite(form,role){
  const data=new FormData(form),name=String(data.get('name')||'').trim(),email=normalize(data.get('email'));
  if(!name||!email.includes('@'))throw Error('Preenche um nome e um email válido.');
@@ -131,6 +169,6 @@ $('logout').addEventListener('click',()=>signOut(auth));
 $('tabs').addEventListener('click',e=>{const t=e.target.closest('[data-tab]');if(t){tab=t.dataset.tab;render();if(tab==='tarefas')applyTaskFilters()}});
 $('screen').addEventListener('change',e=>{if(e.target.id==='taskPreset')applyPreset();if(e.target.id==='taskStatusFilter')applyTaskFilters();});
 $('screen').addEventListener('input',e=>{if(e.target.id==='taskSearch')applyTaskFilters();});
-$('screen').addEventListener('submit',async e=>{if(!['guardianForm','childForm','taskForm'].includes(e.target.id))return;e.preventDefault();try{if(e.target.id==='taskForm')await createTask(e.target);else await invite(e.target,e.target.id==='guardianForm'?'guardian':'child')}catch(err){notice(err.message)}});
-$('screen').addEventListener('click',async e=>{const btn=e.target.closest('[data-action]');if(!btn)return;try{btn.disabled=true;if(['submitTask','approveClaim','rejectClaim'].includes(btn.dataset.action)){await taskAction(btn.dataset.action,btn.dataset.id);return;}if(btn.dataset.action==='archiveTask'){const t=tasks.find(t=>t.id===btn.dataset.id);if(!t||!activeTask(t)||!(isAdmin()||myKids().some(k=>k.uid===t.childId)))throw Error('Sem autorização.');if(!confirm('Arquivar esta tarefa? O histórico e os pontos aprovados serão mantidos.')){btn.disabled=false;return;}await updateDoc(doc(db,'tasks',t.id),{active:false});await load();render();applyTaskFilters();notice('Tarefa arquivada.');return;}if(!isAdmin())throw Error('Sem autorização.');if(btn.dataset.action==='approve')await updateDoc(doc(db,'profiles',btn.dataset.id),{status:'active',approvedBy:user.uid,approvedAt:serverTimestamp()});if(btn.dataset.action==='deleteInvite')await deleteDoc(doc(db,'invitations',btn.dataset.id));await load();render();notice('Alteração guardada.')}catch(err){notice(err.message);btn.disabled=false}});
+$('screen').addEventListener('submit',async e=>{if(!['guardianForm','childForm','taskForm','rewardForm'].includes(e.target.id))return;e.preventDefault();try{if(e.target.id==='taskForm')await createTask(e.target);else if(e.target.id==='rewardForm')await createReward(e.target);else await invite(e.target,e.target.id==='guardianForm'?'guardian':'child')}catch(err){notice(err.message)}});
+$('screen').addEventListener('click',async e=>{const btn=e.target.closest('[data-action]');if(!btn)return;try{btn.disabled=true;if(['requestReward','archiveReward','approveReward','rejectReward'].includes(btn.dataset.action)){await rewardAction(btn.dataset.action,btn.dataset.id);return;}if(['submitTask','approveClaim','rejectClaim'].includes(btn.dataset.action)){await taskAction(btn.dataset.action,btn.dataset.id);return;}if(btn.dataset.action==='archiveTask'){const t=tasks.find(t=>t.id===btn.dataset.id);if(!t||!activeTask(t)||!(isAdmin()||myKids().some(k=>k.uid===t.childId)))throw Error('Sem autorização.');if(!confirm('Arquivar esta tarefa? O histórico e os pontos aprovados serão mantidos.')){btn.disabled=false;return;}await updateDoc(doc(db,'tasks',t.id),{active:false});await load();render();applyTaskFilters();notice('Tarefa arquivada.');return;}if(!isAdmin())throw Error('Sem autorização.');if(btn.dataset.action==='approve')await updateDoc(doc(db,'profiles',btn.dataset.id),{status:'active',approvedBy:user.uid,approvedAt:serverTimestamp()});if(btn.dataset.action==='deleteInvite')await deleteDoc(doc(db,'invitations',btn.dataset.id));await load();render();notice('Alteração guardada.')}catch(err){notice(err.message);btn.disabled=false}});
 onAuthStateChanged(auth,async current=>{user=current;profile=null;people=[];invites=[];try{if(user){await bootstrap();await load();}render();}catch(err){render();notice('Erro ao carregar os dados: '+err.message)}});

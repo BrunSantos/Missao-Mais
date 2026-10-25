@@ -1,0 +1,16 @@
+MISSÃO+ V4 — GESTÃO DE PESSOAS
+
+1. Copia TODOS os ficheiros desta pasta para a raiz do teu repositório GitHub Missao-Mais, substituindo os existentes.
+2. Firebase Console > Firestore > Regras: substitui pelo conteúdo de firestore.rules e clica Publicar. IMPORTANTE: as regras anteriores só permitiam ao administrador aceder; as novas permitem a criação de perfis de contas convidadas, sem permitir que se autoaprovem.
+3. GitHub Desktop > Commit to main > Push origin. Espera pela publicação no GitHub Pages.
+4. Entra como administrador > Pessoas > Adicionar encarregado (nome e email) > Criar convite.
+5. Envia manualmente o link da aplicação ao encarregado. Ele usa exatamente o email convidado, define password e clica Criar conta.
+6. O administrador volta a Pessoas e clica Autorizar na conta criada.
+7. Depois adiciona filhos, selecionando um ou vários encarregados ativos. O filho cria a própria conta com o email convidado e aguarda autorização.
+
+NOTAS:
+- Os convites NÃO enviam emails automaticamente. A aplicação guarda convites no Firestore e cabe ao administrador partilhar o link.
+- Cada pessoa necessita de email próprio para autenticação Firebase nesta versão.
+- Tarefas, aprovações, recompensas e gestão pelos encarregados estão desativadas até haver regras seguras para pontos e relações familiares.
+- A configuração Firebase é pública por natureza; NUNCA coloques uma chave de conta de serviço ou ficheiro JSON privado no GitHub.
+- O acesso de leitura a perfis de terceiros está limitado ao administrador nesta versão. A vista de encarregado será ativada quando existirem regras de leitura de filhos associados.

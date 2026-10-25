@@ -1,12 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
-    function admin() {
-      return request.auth != null &&
-        request.auth.uid == 'mcS8mHznpaQm5qSk0mXEbfuiBWH3';
-    }
-    match /{document=**} {
-      allow read, write: if admin();
-    }
+ match /databases/{database}/documents {
+  function signed() { return request.auth != null; }
+  function admin() { return signed() && request.auth.uid == 'mcS8mHznpaQm5qSk0mXEbfuiBWH3'; }
+  function email() { return signed() && request.auth.token.email != null && request.auth.token.email_verified != null ? request.auth.token.email : (signed() ? request.auth.token.email : ''); }
+  function invited() { return signed() && exists(/databases/$(database)/documents/invitations/$(request.auth.token.email)); }
+  match /invitations/{address} {
+   allow read: if admin() || (signed() && request.auth.token.email == address);
+   allow write: if admin();
   }
+  match /profiles/{uid} {
+   allow read: if admin() || (signed() && request.auth.uid == uid);
+   allow create: if admin() || (signed() && request.auth.uid == uid && invited()
+     && request.resource.data.keys().hasOnly(['name','email','role','status','guardianIds','balance','createdAt'])
+     && request.resource.data.email == request.auth.token.email
+     && request.resource.data.name == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.name
+     && request.resource.data.role == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.role
+     && request.resource.data.guardianIds == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.guardianIds
+     && request.resource.data.status == 'pending'
+     && request.resource.data.balance == 0);
+   allow update, delete: if admin();
+  }
+  match /{document=**} { allow read, write: if false; }
+ }
 }

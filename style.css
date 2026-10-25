@@ -5,3 +5,5 @@
 .item{display:flex;justify-content:space-between;align-items:center;gap:14px;border-top:1px solid #d9e7e3;padding:13px 0;flex-wrap:wrap}.item p{margin:4px 0}.check{display:flex;align-items:center;gap:8px}.check input{width:auto;margin:0}fieldset{border:1px solid #bfd5ce;border-radius:10px;margin:12px 0;padding:12px}button:focus-visible,input:focus-visible{outline:3px solid #75b6a8;outline-offset:2px}
 
 .filterbar{display:grid;grid-template-columns:2fr 1fr;gap:12px}.filterbar label{margin:0}.task-card[hidden]{display:none!important}@media(max-width:650px){.filterbar{grid-template-columns:1fr}}
+
+#taskPreset{border:2px solid #126c62;background:#eaf7f1;font-weight:650;min-height:48px}#taskForm label:first-child{font-weight:700}

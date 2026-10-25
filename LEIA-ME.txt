@@ -1,0 +1,43 @@
+MISSÃO+ — PRIMEIRO PROTÓTIPO (v1)
+================================
+
+Aplicação completamente independente do Estuda+.
+
+IMPORTANTE: ESTA É UMA BASE DE DESENVOLVIMENTO, NÃO UMA VERSÃO PRONTA PARA USO COM CRIANÇAS.
+O fluxo de pontos/recompensas ainda precisa de operações seguras no backend
+(Cloud Functions ou equivalente). Não publicar com regras permissivas nem
+usar em produção antes dessa implementação e de testes de autenticação.
+
+INÍCIO:
+1. Criar novo projeto Firebase, independente do Estuda+.
+2. Ativar Authentication > Email/Password e criar base Cloud Firestore.
+3. Copiar os dados da app web Firebase para firebase-config.js.
+4. Criar a conta principal em Authentication e copiar o UID para ADMIN_UID.
+5. No firestore.rules substituir SUBSTITUIR_UID_ADMIN pelo mesmo UID.
+6. As regras fornecidas são um ponto de partida e exigem testes no emulador.
+7. Criar um repositório GitHub NOVO (ex.: Missao-Mais), publicar os ficheiros.
+8. Ativar GitHub Pages e adicionar o domínio à lista de domínios autorizados
+   do Firebase Authentication.
+
+FUNCIONALIDADES DO PROTÓTIPO:
+- Registo/login Firebase Authentication.
+- Administrador identificado por UID configurado.
+- Perfis de encarregados e filhos com associação individual.
+- Tarefas e responsabilidades com pontos, frequência e horários opcionais.
+- Submissão de tarefa e aprovação/rejeição.
+- Recompensas individuais e familiares e pedidos para aprovação.
+- Interface adaptável a telemóveis e computador.
+
+LIMITAÇÕES CONHECIDAS (A RESOLVER ANTES DA PUBLICAÇÃO):
+- Para criar perfis dos outros utilizadores, cada um precisa primeiro de criar
+  a conta e comunicar o UID ao administrador. Falta fluxo de convite amigável.
+- As regras seguras impedem a alteração de saldo por encarregados: aprovações
+  e resgates com alteração de pontos devem migrar para Cloud Functions.
+- Faltam histórico detalhado, prevenção robusta de duplicados, testes
+  automáticos, validação de dias/horas, notificações e auditoria.
+- As regras de autorização de tarefas e resgates precisam de testes completos
+  no Firebase Emulator Suite antes de ativar para utilizadores reais.
+- A associação de mais de 3 filhos na mesma tarefa/recompensa não está suportada
+  pelas regras iniciais.
+
+Não reutilizar as credenciais nem a base de dados do Estuda+.

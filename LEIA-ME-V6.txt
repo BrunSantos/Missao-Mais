@@ -1,0 +1,20 @@
+MISSÃO+ V6 — TAREFAS PREDEFINIDAS E MELHORIAS
+
+Novidades:
+- Lista de 24 tarefas predefinidas com sugestões de tipo, horário, pontos e frequência.
+- Opção Outra tarefa para escrever qualquer tarefa personalizada.
+- Pesquisa e filtros de tarefas ativas/arquivadas.
+- Arquivar tarefas sem apagar histórico nem pontos já aprovados.
+- Histórico das últimas 40 aprovações/rejeições por encarregado.
+
+INSTALAÇÃO
+1. Copiar todos os ficheiros desta pasta para o repositório GitHub (sem apagar .git).
+2. Firebase Console > Firestore Database > Regras: substituir pelas regras em firestore.rules e publicar.
+3. GitHub Desktop: Commit e Push. Aguardar a publicação do GitHub Pages.
+4. Testar como administrador, encarregado e filho.
+
+NOTAS
+- Os pontos predefinidos são sugestões e podem ser alterados antes de criar.
+- Tarefas antigas sem campo active continuam a aparecer como ativas.
+- Não há edição de tarefas existentes: arquiva e cria outra.
+- Não foi possível executar testes integrados no teu projeto Firebase real.

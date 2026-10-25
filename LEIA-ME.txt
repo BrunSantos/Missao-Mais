@@ -11,9 +11,10 @@ usar em produção antes dessa implementação e de testes de autenticação.
 INÍCIO:
 1. Criar novo projeto Firebase, independente do Estuda+.
 2. Ativar Authentication > Email/Password e criar base Cloud Firestore.
-3. Copiar os dados da app web Firebase para firebase-config.js.
-4. Criar a conta principal em Authentication e copiar o UID para ADMIN_UID.
-5. No firestore.rules substituir SUBSTITUIR_UID_ADMIN pelo mesmo UID.
+3. A configuração Web do projeto missaomais já está preenchida em firebase-config.js.
+   Não é necessário voltar a copiar os dados.
+4. UID do administrador já configurado.
+5. UID do administrador já inserido em firestore.rules.
 6. As regras fornecidas são um ponto de partida e exigem testes no emulador.
 7. Criar um repositório GitHub NOVO (ex.: Missao-Mais), publicar os ficheiros.
 8. Ativar GitHub Pages e adicionar o domínio à lista de domínios autorizados
@@ -41,3 +42,8 @@ LIMITAÇÕES CONHECIDAS (A RESOLVER ANTES DA PUBLICAÇÃO):
   pelas regras iniciais.
 
 Não reutilizar as credenciais nem a base de dados do Estuda+.
+
+ESTADO DESTA VERSÃO: ligação Web e UID do administrador configurados.
+ATENÇÃO: NÃO PUBLICAR AINDA. A aprovação de pontos e o resgate de recompensas
+necessitam de lógica de servidor confiável e regras Firestore revistas.
+As regras atuais bloqueiam a atualização do saldo durante as aprovações.

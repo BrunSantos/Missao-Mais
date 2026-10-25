@@ -1,38 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
- match /databases/{database}/documents {
-  function signed(){return request.auth != null;}
-  function admin(){return signed() && request.auth.uid == 'SUBSTITUIR_UID_ADMIN';}
-  function profile(uid){return get(/databases/$(database)/documents/profiles/$(uid)).data;}
-  function adult(){return signed() && (admin() || profile(request.auth.uid).role == 'guardian');}
-  function linked(child){return signed() && (admin() || (request.auth.uid in profile(child).guardianIds && profile(request.auth.uid).role == 'guardian'));}
-  function allLinked(ids){return ids.size()>0 && ids.size()<=10 && (ids.size()==1 && linked(ids[0]) || ids.size()==2 && linked(ids[0]) && linked(ids[1]) || ids.size()==3 && linked(ids[0]) && linked(ids[1]) && linked(ids[2]));}
-  match /profiles/{uid} {
-   allow get: if signed() && (admin() || request.auth.uid==uid || linked(uid));
-   allow list: if admin() || (signed() && resource.data.role=='child' && request.auth.uid in resource.data.guardianIds);
-   allow create: if admin() && request.resource.data.uid==uid;
-   allow update: if admin();
-   allow delete: if admin();
+  match /databases/{database}/documents {
+    function admin() {
+      return request.auth != null &&
+        request.auth.uid == 'mcS8mHznpaQm5qSk0mXEbfuiBWH3';
+    }
+    match /{document=**} {
+      allow read, write: if admin();
+    }
   }
-  match /tasks/{id} {
-   allow read: if admin() || (signed() && resource.data.childIds.hasAny([request.auth.uid])) || (adult() && allLinked(resource.data.childIds));
-   allow create: if adult() && allLinked(request.resource.data.childIds) && request.resource.data.createdBy==request.auth.uid && request.resource.data.points is int && request.resource.data.points>0;
-   allow update,delete: if admin() || (adult() && allLinked(resource.data.childIds) && allLinked(request.resource.data.childIds));
-  }
-  match /claims/{id} {
-   allow read: if admin() || (signed() && resource.data.childId==request.auth.uid) || (adult() && linked(resource.data.childId));
-   allow create: if signed() && request.resource.data.childId==request.auth.uid && request.resource.data.status=='pending' && id==request.auth.uid+'_'+request.resource.data.taskId+'_'+request.resource.data.day;
-   allow update: if adult() && linked(resource.data.childId) && resource.data.status=='pending' && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedBy','reviewedAt']) && request.resource.data.status in ['approved','rejected'];
-  }
-  match /rewards/{id} {
-   allow read: if admin() || (signed() && resource.data.childIds.hasAny([request.auth.uid])) || (adult() && allLinked(resource.data.childIds));
-   allow create: if adult() && allLinked(request.resource.data.childIds) && request.resource.data.cost is int && request.resource.data.cost>0;
-   allow update,delete: if admin() || (adult() && allLinked(resource.data.childIds) && allLinked(request.resource.data.childIds));
-  }
-  match /redemptions/{id} {
-   allow read: if admin() || (signed() && resource.data.childIds.hasAny([request.auth.uid])) || (adult() && allLinked(resource.data.childIds));
-   allow create: if signed() && request.resource.data.requestedBy==request.auth.uid && request.auth.uid in request.resource.data.childIds && request.resource.data.status=='pending';
-   allow update: if adult() && allLinked(resource.data.childIds) && resource.data.status=='pending' && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedBy','reviewedAt']) && request.resource.data.status in ['approved','rejected'];
-  }
- }
 }

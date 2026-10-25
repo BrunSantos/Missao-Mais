@@ -1,0 +1,15 @@
+MISSÃO+ — ETAPA 2: ARRANQUE DO ADMINISTRADOR
+
+1. No Firebase Console > Firestore Database > Regras, substituir o conteúdo pelas regras em firestore.rules e clicar Publicar.
+2. Em Authentication > Users, confirmar que existe a conta com UID mcS8mHznpaQm5qSk0mXEbfuiBWH3.
+3. Abrir esta pasta no Terminal e executar: python3 -m http.server 8000
+4. Abrir http://localhost:8000 e entrar com o email/password da conta de administrador.
+5. O primeiro acesso cria automaticamente o perfil admin na coleção profiles.
+6. Para publicar: colocar estes ficheiros na raiz de um NOVO repositório GitHub, ativar Settings > Pages > Deploy from a branch > main /root.
+7. Firebase Authentication > Settings > Authorized domains: adicionar o domínio brunsantos.github.io, caso não esteja presente.
+
+ATENÇÃO: ESTA VERSÃO É APENAS PARA ARRANQUE DO ADMINISTRADOR.
+As regras atuais BLOQUEIAM TODOS os encarregados e filhos. Não convidar outros utilizadores para já.
+O formulário de gestão de membros é provisório e não cria contas Firebase Authentication; apenas perfis Firestore.
+A aprovação de pontos e recompensas e as permissões de encarregados ainda NÃO estão prontas para uso real.
+Não alterar estas regras por regras mais abertas sem implementar e testar transações seguras no backend.

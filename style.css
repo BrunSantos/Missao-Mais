@@ -11,3 +11,6 @@
 #taskPresetGroup{border:2px solid #126c62;background:#eaf7f1;font-weight:650;min-height:48px}
 
 #taskPresetSearch{border:2px solid #126c62;background:#fff}#presetSearchCount{margin:5px 0 8px}
+
+/* Combobox pesquisável das tarefas predefinidas */
+.combo{position:relative;display:flex;align-items:center}.combo input{padding-right:48px;border:2px solid #126c62;background:#fff}.combo-arrow{position:absolute;right:5px;top:9px;padding:5px 12px;background:#e3f2ec;color:#145c53}.combo-options{position:absolute;top:100%;left:0;right:0;z-index:30;background:#fff;border:1px solid #bfd5ce;border-radius:9px;box-shadow:0 10px 25px #173b3620;max-height:280px;overflow-y:auto}.combo-options[hidden]{display:none}.combo-option{display:block;width:100%;text-align:left;background:#fff;color:#173b36;border-radius:0;padding:12px;border-bottom:1px solid #e8efec}.combo-option:hover,.combo-option:focus{background:#eaf7f1}.combo-option small{color:#637c75}.combo-option.custom{font-weight:650;color:#126c62}

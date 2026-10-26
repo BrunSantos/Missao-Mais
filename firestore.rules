@@ -28,7 +28,7 @@ service cloud.firestore {
   match /tasks/{id} {
    allow get, list: if admin() || (signed() && (own(resource.data.childId) || guardianOf(resource.data.childId)));
    allow create: if adultFor(request.resource.data.childId) && activeChild(request.resource.data.childId)
-     && request.resource.data.keys().hasOnly(['title','description','category','period','points','frequency','deadline','childId','active','createdBy','createdAt'])
+     && request.resource.data.keys().hasOnly(['title','description','category','period','points','frequency','weekdays','deadline','childId','active','createdBy','createdAt'])
      && request.resource.data.active == true
      && request.resource.data.createdBy == request.auth.uid
      && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
@@ -37,10 +37,14 @@ service cloud.firestore {
      && request.resource.data.period in ['Manhã','Depois da escola','Noite','Outro']
      && request.resource.data.points is int && request.resource.data.points >= 1 && request.resource.data.points <= 500
      && request.resource.data.frequency in ['daily','weekly','once']
+     && request.resource.data.weekdays is list && request.resource.data.weekdays.size() <= 7
+     && (request.resource.data.frequency != 'daily' || request.resource.data.weekdays.size() > 0)
+     && request.resource.data.weekdays.hasOnly([0,1,2,3,4,5,6])
      && request.resource.data.deadline is string && request.resource.data.createdAt == request.time;
-   allow update: if adultFor(resource.data.childId) && resource.data.active == true
+   allow update: if adultFor(resource.data.childId)
      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
-     && request.resource.data.active == false;
+     && request.resource.data.active is bool
+     && request.resource.data.active != resource.data.active;
    allow delete: if false;
   }
   match /claims/{id} {

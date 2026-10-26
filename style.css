@@ -14,3 +14,7 @@
 
 /* Combobox pesquisável das tarefas predefinidas */
 .combo{position:relative;display:flex;align-items:center}.combo input{padding-right:48px;border:2px solid #126c62;background:#fff}.combo-arrow{position:absolute;right:5px;top:9px;padding:5px 12px;background:#e3f2ec;color:#145c53}.combo-options{position:absolute;top:100%;left:0;right:0;z-index:30;background:#fff;border:1px solid #bfd5ce;border-radius:9px;box-shadow:0 10px 25px #173b3620;max-height:280px;overflow-y:auto}.combo-options[hidden]{display:none}.combo-option{display:block;width:100%;text-align:left;background:#fff;color:#173b36;border-radius:0;padding:12px;border-bottom:1px solid #e8efec}.combo-option:hover,.combo-option:focus{background:#eaf7f1}.combo-option small{color:#637c75}.combo-option.custom{font-weight:650;color:#126c62}
+
+.task-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+
+.weekday-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}.day-check{display:flex;align-items:center;justify-content:center;gap:5px;background:#eaf7f1;border-radius:9px;padding:9px 4px;font-size:13px}.day-check input{width:auto;margin:0}.combo-empty{padding:10px;color:#637c75;font-size:14px}[hidden]{display:none!important}@media(max-width:650px){.weekday-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}

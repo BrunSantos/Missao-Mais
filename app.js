@@ -1,52 +1,36 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import {getFirestore,doc,getDoc,setDoc,collection,getDocs,query,where,updateDoc,deleteDoc,deleteField,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import {getStorage,ref as storageRef,uploadBytes,deleteObject,getDownloadURL} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 import {firebaseConfig,ADMIN_UID} from './firebase-settings-v3.js';
-const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),storage=getStorage(app),$=id=>document.getElementById(id);
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').trim().toLowerCase();
 let user=null,profile=null,people=[],invites=[],tasks=[],claims=[],rewards=[],redemptions=[],tab='inicio';
 const isAdmin=()=>user?.uid===ADMIN_UID;
 const notice=s=>{$('feedback').textContent=s};
-const avatarCache=new Map();
-const avatarMarkup=(p,cls='')=>`<span class="kid-avatar ${cls}" data-avatar-id="${esc(p.uid)}" aria-label="Fotografia de ${esc(p.name)}">${esc((p.name||'?').trim().charAt(0).toUpperCase())}</span>`;
-async function hydrateAvatars(){
- const targets=[...document.querySelectorAll('[data-avatar-id]')];
- await Promise.all([...new Set(targets.map(el=>el.dataset.avatarId))].map(async id=>{
-  const p=people.find(x=>x.uid===id);if(!p?.photoPath)return;
-  try{
-   const key=id+'|'+p.photoPath;
-   let url=avatarCache.get(key);
-   if(!url){url=await getDownloadURL(storageRef(storage,p.photoPath));avatarCache.set(key,url);}
-   document.querySelectorAll('[data-avatar-id]').forEach(el=>{if(el.dataset.avatarId===id){el.textContent='';const img=document.createElement('img');img.src=url;img.alt='';img.referrerPolicy='no-referrer';el.append(img);}});
-  }catch(err){console.warn('Fotografia indisponível',err.code);}
- }));
-}
+const avatarMarkup=(p,cls='')=>`<span class="kid-avatar ${cls}" aria-label="Fotografia de ${esc(p.name)}">${p.photoData?`<img src="${esc(p.photoData)}" alt="" loading="lazy">`:esc((p.name||'?').trim().charAt(0).toUpperCase())}</span>`;
+function hydrateAvatars(){} // Fotografias incluídas nos perfis carregados do Firestore.
 function allowedPhoto(id){return !!user&&(isAdmin()||(profile?.role==='guardian'&&profile?.status==='active'&&myKids().some(k=>k.uid===id)));}
 async function processPhoto(file,id){
  if(!allowedPhoto(id))throw Error('Sem autorização para alterar esta fotografia.');
  if(!file||!file.type.startsWith('image/'))throw Error('Seleciona uma imagem válida.');
  if(file.size>12*1024*1024)throw Error('A imagem deve ter menos de 12 MB.');
- const bitmap=await createImageBitmap(file).catch(()=>null);
+ const bitmap=typeof createImageBitmap==='function'?await createImageBitmap(file).catch(()=>null):null;
  const img=bitmap||await new Promise((resolve,reject)=>{const im=new Image(),url=URL.createObjectURL(file);im.onload=()=>{URL.revokeObjectURL(url);resolve(im)};im.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Não foi possível abrir a imagem.'))};im.src=url});
- const canvas=document.createElement('canvas');canvas.width=320;canvas.height=320;
+ const canvas=document.createElement('canvas');canvas.width=192;canvas.height=192;
  const ctx=canvas.getContext('2d'),side=Math.min(img.width,img.height);
- ctx.drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,320,320);
+ ctx.drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,192,192);
  if(bitmap)bitmap.close();
- const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.82));
- if(!blob)throw Error('Não foi possível preparar a fotografia.');
- const path=`child-photos/${id}/profile.jpg`;
- await uploadBytes(storageRef(storage,path),blob,{contentType:'image/jpeg',cacheControl:'no-cache'});
- await updateDoc(doc(db,'profiles',id),{photoPath:path});
- avatarCache.clear();await load();render();notice('Fotografia atualizada.');
+ let quality=.75,data=canvas.toDataURL('image/jpeg',quality);
+ while(data.length>65000&&quality>.3){quality-=.1;data=canvas.toDataURL('image/jpeg',quality);}
+ if(data.length>100000)throw Error('A fotografia é demasiado grande. Tenta outra imagem.');
+ await updateDoc(doc(db,'profiles',id),{photoData:data,photoPath:deleteField()});
+ await load();render();notice('Fotografia atualizada.');
 }
 async function removePhoto(id){
  if(!allowedPhoto(id))throw Error('Sem autorização.');
- const p=people.find(x=>x.uid===id);if(!p?.photoPath)return;
- await deleteObject(storageRef(storage,p.photoPath)).catch(err=>{if(err.code!=='storage/object-not-found')throw err});
- await updateDoc(doc(db,'profiles',id),{photoPath:deleteField()});
- avatarCache.clear();await load();render();notice('Fotografia removida.');
+ await updateDoc(doc(db,'profiles',id),{photoData:deleteField(),photoPath:deleteField()});
+ await load();render();notice('Fotografia removida.');
 }
 const personName=id=>people.find(p=>p.uid===id)?.name||'Conta pendente';
 const associated=id=>isAdmin()||(profile?.role==='guardian'&&profile?.status==='active'&&(people.some(p=>p.uid===id&&p.role==='child'&&(p.guardianIds||[]).includes(user.uid))));
@@ -136,7 +120,7 @@ function home(){
    const kidTasks=tasks.filter(t=>t.childId===k.uid&&activeTask(t)&&scheduledToday(t));
    const pending=pendingClaims.filter(c=>c.childId===k.uid).length;
    const week=weeklyProgress(k.uid);
-   return `<article class="card"><h3 class="kid-heading">${avatarMarkup(k)} ${esc(k.name)}</h3>${adult&&allowedPhoto(k.uid)?`<div class="photo-actions"><label class="photo-button">📷 Câmara<input type="file" accept="image/*" capture="environment" data-photo="${esc(k.uid)}"></label><label class="photo-button">🖼️ Galeria<input type="file" accept="image/*" data-photo="${esc(k.uid)}"></label>${k.photoPath?`<button type="button" class="alt" data-action="removePhoto" data-id="${esc(k.uid)}">Remover foto</button>`:}</div>`:}<div class="points">${score(k.uid)} ⭐</div><p class="muted">${kidTasks.length} tarefas previstas hoje · ${pending} por aprovar</p><div class="week-stats"><b>Esta semana</b><span>${week.completed} tarefas aprovadas</span><span>+${week.points} ⭐ conquistados</span>${week.pending?`<span>${week.pending} a aguardar aprovação</span>`:''}</div></article>`;
+   return `<article class="card"><h3 class="kid-heading">${avatarMarkup(k)} ${esc(k.name)}</h3>${adult&&allowedPhoto(k.uid)?`<div class="photo-actions"><label class="photo-button">📷 Câmara<input type="file" accept="image/*" capture="environment" data-photo="${esc(k.uid)}"></label><label class="photo-button">🖼️ Galeria<input type="file" accept="image/*" data-photo="${esc(k.uid)}"></label>${k.photoData?`<button type="button" class="alt" data-action="removePhoto" data-id="${esc(k.uid)}">Remover foto</button>`:}</div>`:}<div class="points">${score(k.uid)} ⭐</div><p class="muted">${kidTasks.length} tarefas previstas hoje · ${pending} por aprovar</p><div class="week-stats"><b>Esta semana</b><span>${week.completed} tarefas aprovadas</span><span>+${week.points} ⭐ conquistados</span>${week.pending?`<span>${week.pending} a aguardar aprovação</span>`:''}</div></article>`;
  }).join('');
  if(!profile||profile.status!=='active')return `<h2>Bem-vindo à Missão+</h2><p>${!profile?'Ainda não existe um convite para este email. Pede ao administrador que te adicione.':'A tua conta foi criada. Aguarda a autorização do administrador.'}</p>`;
  const summary=adult?`<div class="grid"><article class="card"><h3>Tarefas por aprovar</h3><div class="points">${pendingClaims.length}</div></article><article class="card"><h3>Recompensas pedidas</h3><div class="points">${pendingRewards.length}</div></article><article class="card"><h3>Filhos associados</h3><div class="points">${kids.length}</div></article></div>`:'';
@@ -149,7 +133,7 @@ function members(){
  const children=people.filter(p=>p.role==='child');
  const childOptions=guardians.map(g=>`<label class="check"><input type="checkbox" name="guardian" value="${esc(g.uid)}"> ${esc(g.name)} (${esc(g.email)})</label>`).join('');
  const invitations=invites.map(i=>`<article class="item"><div><b>${esc(i.name)}</b><p class="muted">${esc(i.email)} · ${i.role==='guardian'?'Encarregado':'Filho'} · Convite criado</p></div><button class="alt" data-action="deleteInvite" data-id="${esc(i.email)}">Remover convite</button></article>`).join('');
- const accounts=people.filter(p=>p.uid!==ADMIN_UID).map(p=>`<article class="item"><div>${p.role==='child'?avatarMarkup(p):''}<b>${esc(p.name)}</b><p class="muted">${esc(p.email)} · ${p.role==='guardian'?'Encarregado':'Filho'} · ${p.status==='active'?'Ativo':'Aguarda aprovação'}</p>${p.role==='child'?`<p class="muted">Encarregados: ${(p.guardianIds||[]).map(id=>esc(personName(id))).join(', ')||'Nenhum'}</p><div class="photo-actions"><label class="photo-button">📷 Câmara<input type="file" accept="image/*" capture="environment" data-photo="${esc(p.uid)}"></label><label class="photo-button">🖼️ Galeria<input type="file" accept="image/*" data-photo="${esc(p.uid)}"></label>${p.photoPath?`<button type="button" class="alt" data-action="removePhoto" data-id="${esc(p.uid)}">Remover foto</button>`:''}</div>`:''}</div>${p.status==='pending'?`<button data-action="approve" data-id="${esc(p.uid)}">Autorizar</button>`:''}</article>`).join('');
+ const accounts=people.filter(p=>p.uid!==ADMIN_UID).map(p=>`<article class="item"><div>${p.role==='child'?avatarMarkup(p):''}<b>${esc(p.name)}</b><p class="muted">${esc(p.email)} · ${p.role==='guardian'?'Encarregado':'Filho'} · ${p.status==='active'?'Ativo':'Aguarda aprovação'}</p>${p.role==='child'?`<p class="muted">Encarregados: ${(p.guardianIds||[]).map(id=>esc(personName(id))).join(', ')||'Nenhum'}</p><div class="photo-actions"><label class="photo-button">📷 Câmara<input type="file" accept="image/*" capture="environment" data-photo="${esc(p.uid)}"></label><label class="photo-button">🖼️ Galeria<input type="file" accept="image/*" data-photo="${esc(p.uid)}"></label>${p.photoData?`<button type="button" class="alt" data-action="removePhoto" data-id="${esc(p.uid)}">Remover foto</button>`:''}</div>`:''}</div>${p.status==='pending'?`<button data-action="approve" data-id="${esc(p.uid)}">Autorizar</button>`:''}</article>`).join('');
  return `<h2>Família e acessos</h2><p class="muted">Só o administrador pode convidar e autorizar contas. Os convidados criam a própria password. Não é necessário copiar UID do Firebase.</p>
  <div class="grid"><article class="card"><h3>1. Adicionar encarregado</h3><form id="guardianForm"><label>Nome<input name="name" required maxlength="100"></label><label>Email<input name="email" type="email" required></label><button>Criar convite</button></form></article>
  <article class="card"><h3>2. Adicionar filho</h3>${guardians.length?`<form id="childForm"><label>Nome<input name="name" required maxlength="100"></label><label>Email para iniciar sessão<input name="email" type="email" required></label><fieldset><legend>Associar aos encarregados ativos</legend>${childOptions}</fieldset><button>Criar convite do filho</button></form>`:'<p>Autoriza primeiro pelo menos um encarregado de educação.</p>'}</article></div>

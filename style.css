@@ -34,3 +34,14 @@
 .calendar-period{margin-top:10px}.calendar-period>strong{display:block;background:#dceee7;border-radius:5px;padding:5px;font-size:12px}
 .calendar-entry{display:flex;gap:5px;align-items:flex-start;padding:5px 1px;font-size:12px;border-bottom:1px solid #e1ece8;overflow-wrap:anywhere}
 .print-check{font-size:18px;line-height:1;color:#79928b}
+
+.save-feedback{font-weight:650;margin-top:12px;min-height:1.4em}.save-feedback[data-state="working"]{color:#126c62}.save-feedback[data-state="error"]{color:#a33;background:#fff2f1;padding:12px;border-radius:9px}
+
+/* v31: notificações globais em vez de mensagens vermelhas fixas */
+#feedback,.save-feedback{display:none!important}
+.app-toast[hidden]{display:none!important}
+.app-toast{position:fixed;z-index:9999;top:18px;right:18px;max-width:min(440px,calc(100vw - 36px));display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-radius:14px;background:#e7f5ef;color:#12594d;border:1px solid #9ecfc0;box-shadow:0 10px 32px #0002;font-weight:650;overflow-wrap:anywhere}
+.app-toast.toast-error{background:#fff1ef;color:#872d27;border-color:#eab6b0}
+.app-toast.toast-working{background:#eef5fb;color:#285577;border-color:#b7d1e7}
+.toast-close{background:transparent;color:inherit;border:0;padding:0 2px;font-size:24px;line-height:1;min-width:24px}
+@media(max-width:650px){.app-toast{left:12px;right:12px;top:12px;max-width:none}}

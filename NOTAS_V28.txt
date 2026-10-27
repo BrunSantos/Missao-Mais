@@ -1,7 +1,0 @@
-Missão+ v28 — Eliminar tarefas duplicadas
-
-Botão Eliminar na ficha de cada tarefa. Remoção lógica: deixa de aparecer no calendário e nas listas, mas preserva o histórico e pontos aprovados.
-
-IMPORTANTE: atualizar as regras de /tasks no Firebase Firestore antes de utilizar Eliminar. Comparar com as regras atuais; não substituir regras personalizadas sem revisão.
-
-Substituir ficheiros no repositório GitHub mantendo .git; Commit e Push no GitHub Desktop.

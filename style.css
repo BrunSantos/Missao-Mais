@@ -28,3 +28,9 @@
 
 /* Gestão dos filhos v27 */
 .child-management{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.child-management button{min-height:44px}.child-management .red{background:#a92e32;color:white}
+/* v29: calendário familiar por filho e período */
+.calendar-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.family-calendar>h3{margin:0 0 12px}.family-child{margin-bottom:22px}.family-child>h4{margin:10px 0;font-size:1.15rem}
+.calendar-period{margin-top:10px}.calendar-period>strong{display:block;background:#dceee7;border-radius:5px;padding:5px;font-size:12px}
+.calendar-entry{display:flex;gap:5px;align-items:flex-start;padding:5px 1px;font-size:12px;border-bottom:1px solid #e1ece8;overflow-wrap:anywhere}
+.print-check{font-size:18px;line-height:1;color:#79928b}

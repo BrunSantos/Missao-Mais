@@ -1,4 +1,0 @@
-Missão+ v33 — correção de período e hora de tarefas.
-Apenas período: guarda o período e limpa a hora da tarefa. Hora específica: calcula o período automaticamente.
-A hora limite de conclusão é independente do horário do calendário.
-Mantém a pasta .git e os dados Firebase existentes.

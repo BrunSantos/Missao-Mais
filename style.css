@@ -64,3 +64,6 @@
 .panel-task-art{width:168px;height:105px;object-fit:cover;border-radius:13px;flex:none;background:#e8f5f0;display:block}
 @media(max-width:650px){.panel-task{gap:10px;padding:10px}.panel-task-art{width:95px;height:90px}.panel-task-info strong{font-size:1rem}.panel-check{width:48px;min-width:48px;height:48px;font-size:24px}}
 @media(max-width:390px){.panel-task-art{width:74px;height:82px}.panel-task{gap:7px}.panel-task-info small{font-size:.75rem}}
+
+/* v41: seleção de ilustrações */
+.task-image-preview{display:flex;align-items:center;gap:12px;margin:8px 0 14px;color:#637c75}.task-image-preview img{width:110px;height:78px;object-fit:cover;border-radius:12px;background:#e8f5f0}.task-image-preview small{font-size:.85rem}

@@ -1,1 +1,0 @@
-Missão+ v32 — Pop-up central de sucesso e erro. Remove mensagens vermelhas fixas. Erros de gravação exibidos no pop-up. A operação só indica sucesso após confirmação do Firebase. Sem alterações às regras ou aos dados.

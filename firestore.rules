@@ -65,7 +65,7 @@ service cloud.firestore {
   match /tasks/{id} {
    allow get, list: if admin() || (signed() && (own(resource.data.childId) || guardianOf(resource.data.childId)));
    allow create: if adultFor(request.resource.data.childId) && activeChild(request.resource.data.childId)
-     && request.resource.data.keys().hasOnly(['title','description','category','period','taskTime','approvalMode','points','frequency','weekdays','deadline','childId','active','createdBy','createdAt','scheduleEnd','customSchedule','daySchedules'])
+     && request.resource.data.keys().hasOnly(['title','description','category','period','taskTime','approvalMode','points','frequency','weekdays','deadline','childId','active','createdBy','createdAt','scheduleEnd','customSchedule','daySchedules','imageKey'])
      && request.resource.data.active == true
      && request.resource.data.createdBy == request.auth.uid
      && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
@@ -73,6 +73,7 @@ service cloud.firestore {
      && request.resource.data.category in ['Responsabilidade','Tarefa doméstica']
      && request.resource.data.period in ['Manhã','Tarde','Depois da escola','Noite','Outro']
      && request.resource.data.taskTime is string && (request.resource.data.taskTime == '' || request.resource.data.taskTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'))
+     && request.resource.data.get('imageKey','auto') in ['auto','geral','dentes','vestir','refeicao','cama','banho','escola','arrumar']
      && validCustomSchedule(request.resource.data)
      && request.resource.data.approvalMode in ['approval','automatic','parent']
      && request.resource.data.points is int && request.resource.data.points >= 1 && request.resource.data.points <= 500
@@ -83,13 +84,14 @@ service cloud.firestore {
      && request.resource.data.deadline is string && request.resource.data.createdAt == request.time;
    allow update: if adultFor(resource.data.childId) && (
      (resource.data.get('deleted',false) == false
-      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','description','category','period','taskTime','approvalMode','points','frequency','weekdays','deadline','scheduleEnd','customSchedule','daySchedules'])
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','description','category','period','taskTime','approvalMode','points','frequency','weekdays','deadline','scheduleEnd','customSchedule','daySchedules','imageKey'])
       && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
       && request.resource.data.description is string && request.resource.data.description.size() <= 600
       && request.resource.data.category in ['Responsabilidade','Tarefa doméstica']
       && request.resource.data.period in ['Manhã','Tarde','Noite','Depois da escola','Outro']
       && request.resource.data.taskTime is string && (request.resource.data.taskTime == '' || request.resource.data.taskTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'))
-      && validCustomSchedule(request.resource.data)
+      && request.resource.data.get('imageKey','auto') in ['auto','geral','dentes','vestir','refeicao','cama','banho','escola','arrumar']
+     && validCustomSchedule(request.resource.data)
      && request.resource.data.approvalMode in ['approval','automatic','parent']
       && request.resource.data.points is int && request.resource.data.points >= 1 && request.resource.data.points <= 500
       && request.resource.data.frequency in ['daily','weekly','once']

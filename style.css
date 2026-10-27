@@ -67,3 +67,6 @@
 
 /* v41: seleção de ilustrações */
 .task-image-preview{display:flex;align-items:center;gap:12px;margin:8px 0 14px;color:#637c75}.task-image-preview img{width:110px;height:78px;object-fit:cover;border-radius:12px;background:#e8f5f0}.task-image-preview small{font-size:.85rem}
+
+/* v42: alertas dentro da aplicação */
+.nav-alert{display:inline-flex;min-width:21px;height:21px;align-items:center;justify-content:center;border-radius:14px;background:#a04431;color:white;font-weight:700;font-size:12px;padding:0 5px;margin-left:5px}.attention-summary{border:2px solid #dfc4a6}.attention-summary p{display:flex;align-items:center;flex-wrap:wrap;gap:9px}

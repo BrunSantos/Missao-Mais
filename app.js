@@ -136,7 +136,10 @@ function render(){
  $('identity').textContent=(profile?.name||user.email)+(isAdmin()?' · Administrador':'');
  const allowed=isAdmin()?['inicio','painel','pessoas','tarefas','aprovações','recompensas']:profile?.status==='active'&&profile?.role==='guardian'?['inicio','painel','pessoas','tarefas','aprovações','recompensas']:profile?.status==='active'&&profile?.role==='child'?['inicio','painel','tarefas','recompensas']:['inicio'];
  if(!allowed.includes(tab))tab='inicio';
- $('tabs').innerHTML=allowed.map(t=>`<button class="${tab===t?'':'alt'}" data-tab="${t}">${t==='pessoas'?'Família':t[0].toUpperCase()+t.slice(1)}</button>`).join('');
+ const kidIds=new Set((isAdmin()||profile?.role==='guardian'?myKids():[]).map(k=>k.uid));
+ const pendingApprovals=claims.filter(c=>c.status==='pending'&&kidIds.has(c.childId)).length;
+ const pendingPrizes=redemptions.filter(r=>r.status==='pending'&&kidIds.has(r.childId)).length;
+ $('tabs').innerHTML=allowed.map(t=>`<button class="${tab===t?'':'alt'}" data-tab="${t}">${t==='pessoas'?'Família':t[0].toUpperCase()+t.slice(1)}${t==='aprovações'&&pendingApprovals?` <span class="nav-alert" aria-label="${pendingApprovals} tarefas pendentes">${pendingApprovals}</span>`:t==='recompensas'&&pendingPrizes?` <span class="nav-alert" aria-label="${pendingPrizes} recompensas pendentes">${pendingPrizes}</span>`:''}</button>`).join('');
  $('screen').innerHTML=tab==='pessoas'?members():tab==='inicio'?home():tab==='painel'?familyPanel():tab==='tarefas'?taskScreen():tab==='aprovações'?approvalScreen():rewardScreen();
  if(tab==='tarefas')filterPresetGroup();
  hydrateAvatars();
@@ -199,7 +202,8 @@ function home(){
  if(!isAdmin()&&(!profile||profile.status!=='active'))return `<h2>Bem-vindo à Missão+</h2><p>${!profile?'Ainda não existe um convite para este email. Pede ao administrador que te adicione.':'A tua conta foi criada. Aguarda a autorização do administrador.'}</p><p class="muted">Se esta deveria ser a tua conta de administrador, verifica se entraste com o email original. O acesso administrativo está associado ao identificador da conta no Firebase Authentication, não ao nome ou email apresentado.</p>`;
  const summary=adult?`<div class="grid"><article class="card"><h3>Tarefas por aprovar</h3><div class="points">${pendingClaims.length}</div></article><article class="card"><h3>Recompensas pedidas</h3><div class="points">${pendingRewards.length}</div></article><article class="card"><h3>Filhos associados</h3><div class="points">${kids.length}</div></article></div>`:'';
  const actions=`<div class="login-actions"><button type="button" data-go="tarefas">Ver tarefas</button>${adult?'<button type="button" class="alt" data-go="aprovações">Ver aprovações</button>':''}<button type="button" class="alt" data-go="recompensas">Ver recompensas</button><button type="button" class="alt" data-action="refreshData">Atualizar dados</button></div>`;
- return `<h2>O teu painel</h2><p class="muted">Resumo das missões e recompensas</p>${summary}<h3>${adult?'Pontos dos filhos':'Os meus pontos e tarefas'}</h3><div class="grid">${cards||'<p>Ainda não existem filhos associados.</p>'}</div>${actions}`;
+ const alerts=adult&&(pendingClaims.length||pendingRewards.length)?`<article class="card attention-summary"><h3>🔔 Notificações pendentes</h3>${pendingClaims.length?`<p><strong>${pendingClaims.length}</strong> tarefa(s) a aguardar aprovação. <button type="button" class="alt" data-go="aprovações">Rever tarefas</button></p>`:''}${pendingRewards.length?`<p><strong>${pendingRewards.length}</strong> recompensa(s) a aguardar decisão. <button type="button" class="alt" data-go="recompensas">Rever recompensas</button></p>`:''}</article>`:'';
+ return `<h2>O teu painel</h2><p class="muted">Resumo das missões e recompensas</p>${alerts}${summary}<h3>${adult?'Pontos dos filhos':'Os meus pontos e tarefas'}</h3><div class="grid">${cards||'<p>Ainda não existem filhos associados.</p>'}</div>${actions}`;
 }
 
 function members(){

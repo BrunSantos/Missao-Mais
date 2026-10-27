@@ -1,8 +1,0 @@
-Missão+ v21 — Fotografias no Firestore (sem Storage)
-
-1. Publicar as regras firestore.rules na consola Firebase > Firestore Database > Rules. Verificar diferenças antes de substituir regras personalizadas.
-2. No GitHub Desktop, substituir os ficheiros da aplicação sem apagar a pasta .git; Commit e Push.
-3. As fotografias são comprimidas a 192x192 pixels e guardadas em photoData no documento profiles/{uid}.
-4. Não é necessário ativar Firebase Storage ou o plano Blaze para esta funcionalidade.
-5. Fotografias já guardadas anteriormente no Storage não são migradas automaticamente; voltar a escolher a fotografia.
-6. Confirmar permissões de acesso aos perfis e testar no Safari e no telemóvel.

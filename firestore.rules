@@ -11,7 +11,8 @@ service cloud.firestore {
   function invited() { return signed() && request.auth.token.email != null && exists(/databases/$(database)/documents/invitations/$(request.auth.token.email)); }
   match /invitations/{address} {
    allow read: if admin() || (signed() && request.auth.token.email == address);
-   allow write: if admin();
+   allow create: if admin() || (signed() && exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) && profile(request.auth.uid).role == 'guardian' && profile(request.auth.uid).status == 'active' && request.resource.data.role == 'child' && request.resource.data.guardianIds == [request.auth.uid] && request.resource.data.createdBy == request.auth.uid && request.resource.data.email == address && request.resource.data.keys().hasOnly(['name','email','role','guardianIds','createdBy','createdAt']) && request.resource.data.createdAt == request.time);
+   allow update, delete: if admin();
   }
   match /profiles/{uid} {
    allow get: if admin() || own(uid) || guardianOf(uid);

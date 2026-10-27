@@ -8,7 +8,7 @@ const normalize=s=>String(s||'').trim().toLowerCase();
 let user=null,profile=null,people=[],invites=[],tasks=[],claims=[],rewards=[],redemptions=[],tab='inicio';
 const isAdmin=()=>!!user&&!!ADMIN_UID&&user.uid===ADMIN_UID;
 const notice=s=>{$('feedback').textContent=s};
-const avatarMarkup=(p,cls='')=>`<span class="kid-avatar ${cls}" aria-label="Fotografia de ${esc(p.name)}">${p.photoData?`<img src="${esc(p.photoData)}" alt="" loading="lazy">`:esc((p.name||'?').trim().charAt(0).toUpperCase())}</span>`;
+const avatarMarkup=(p,cls='')=>`<span class="kid-avatar ${cls}" aria-label="Fotografia de ${esc(p.name)}">${p.photoData?`<img src="${esc(p.photoData)}" alt="" loading="lazy">`:`<img src="./avatar-default.svg" alt="Avatar genérico" loading="lazy">`}</span>`;
 function hydrateAvatars(){} // Fotografias incluídas nos perfis carregados do Firestore.
 function allowedPhoto(id){return !!user&&(isAdmin()||((profile?.role==='guardian'||isAdmin())&&profile?.status==='active'&&myKids().some(k=>k.uid===id)));}
 async function processPhoto(file,id){
@@ -130,14 +130,14 @@ function home(){
 }
 
 function members(){
- const guardians=isAdmin()?people.filter(p=>(p.role==='guardian'||p.role==='admin'||p.uid===ADMIN_UID)&&p.status==='active'):[profile];
+ const guardians=isAdmin()?[{uid:user.uid,name:profile?.name||user.email,email:user.email,role:'admin',status:'active'},...people.filter(p=>p.uid!==user.uid&&p.role==='guardian'&&p.status==='active')]:[profile];
  const children=people.filter(p=>p.role==='child'&&(isAdmin()||(p.guardianIds||[]).includes(user.uid)));
- const childOptions=guardians.map(g=>`<label class="check"><input type="checkbox" name="guardian" value="${esc(g.uid)}"> ${esc(g.name)} (${esc(g.email)})</label>`).join('');
+ const childOptions=guardians.map(g=>`<label class="check"><input type="checkbox" name="guardian" value="${esc(g.uid)}" ${g.uid===user.uid?'checked':''}> ${esc(g.name)} (${esc(g.email)})</label>`).join('');
  const invitations=(isAdmin()?invites:[]).map(i=>`<article class="item"><div><b>${esc(i.name)}</b><p class="muted">${esc(i.email)} · ${i.role==='guardian'?'Encarregado':'Filho'} · Convite criado</p></div><button class="alt" data-action="deleteInvite" data-id="${esc(i.email)}">Remover convite</button></article>`).join('');
  const accounts=people.filter(p=>p.uid!==ADMIN_UID&&(isAdmin()||p.role==='child'&&(p.guardianIds||[]).includes(user.uid))).map(p=>`<article class="item"><div>${p.role==='child'?avatarMarkup(p):''}<b>${esc(p.name)}</b><p class="muted">${esc(p.email)} · ${p.role==='guardian'?'Encarregado':'Filho'} · ${p.status==='active'?'Ativo':'Aguarda aprovação'}</p>${p.role==='child'?`<p class="muted">Encarregados: ${(p.guardianIds||[]).map(id=>esc(personName(id))).join(', ')||'Nenhum'}</p><div class="photo-actions"><label class="photo-button">📷 Câmara<input type="file" accept="image/*" capture="environment" data-photo="${esc(p.uid)}"></label><label class="photo-button">🖼️ Galeria<input type="file" accept="image/*" data-photo="${esc(p.uid)}"></label>${p.photoData?`<button type="button" class="alt" data-action="removePhoto" data-id="${esc(p.uid)}">Remover foto</button>`:''}</div>`:''}</div>${isAdmin()&&p.status==='pending'?`<button data-action="approve" data-id="${esc(p.uid)}">Autorizar</button>`:''}</article>`).join('');
  return `<h2>Família e acessos</h2><p class="muted">${isAdmin()?'Como administrador, também podes ser encarregado dos teus filhos.':'Podes convidar um filho para a tua família. A ativação da conta depende da aprovação do administrador.'} Cada filho cria a sua própria password.</p>
  <div class="grid">${isAdmin()?`<article class="card"><h3>Adicionar encarregado</h3><form id="guardianForm"><label>Nome<input name="name" required maxlength="100"></label><label>Email<input name="email" type="email" required></label><button>Criar convite</button></form></article>`:""}
- <article class="card"><h3>Adicionar filho</h3>${guardians.length?`<form id="childForm"><label>Nome<input name="name" required maxlength="100"></label><label>Email para iniciar sessão<input name="email" type="email" required></label><fieldset><legend>Associar aos encarregados ativos</legend>${isAdmin()?childOptions:`<label class="check"><input type="checkbox" name="guardian" value="${esc(user.uid)}" checked disabled> Eu (${esc(profile.name)})</label><input type="hidden" name="guardian" value="${esc(user.uid)}">`}</fieldset><button>Criar convite do filho</button></form>`:'<p>Autoriza primeiro pelo menos um encarregado de educação.</p>'}</article></div>
+ <article class="card"><h3>Adicionar filho</h3><p class="muted">Cria um convite para o teu filho se registar com a própria password.</p>${guardians.length?`<form id="childForm"><label>Nome<input name="name" required maxlength="100"></label><label>Email para iniciar sessão<input name="email" type="email" required></label><fieldset><legend>Associar aos encarregados ativos</legend>${isAdmin()?childOptions:`<label class="check"><input type="checkbox" name="guardian" value="${esc(user.uid)}" checked disabled> Eu (${esc(profile.name)})</label><input type="hidden" name="guardian" value="${esc(user.uid)}">`}</fieldset><button>Criar convite do filho</button></form>`:'<p>Autoriza primeiro pelo menos um encarregado de educação.</p>'}</article></div>
  ${isAdmin()?`<article class="card"><h3>Convites</h3>${invitations||'<p class="muted">Ainda não existem convites.</p>'}<p class="muted">Partilha com cada pessoa o endereço da Missão+ e pede-lhe que clique em «Criar conta» com o email convidado. O convite não envia emails automaticamente.</p></article>`:''}
  <article class="card"><h3>Utilizadores registados</h3>${accounts||'<p class="muted">Ainda não existem utilizadores.</p>'}</article>`;
 }
@@ -260,7 +260,7 @@ async function invite(form,role){
  if(!name||!email.includes('@'))throw Error('Preenche um nome e um email válido.');
  const guardianIds=role==='child'?data.getAll('guardian'):[];
  if(role==='child'&&!guardianIds.length)throw Error('Seleciona pelo menos um encarregado.');
- if(role==='child'&&guardianIds.some(id=>!(isAdmin()?people.some(p=>p.uid===id&&(p.role==='guardian'||p.role==='admin')&&p.status==='active'):id===user.uid)))throw Error('Encarregado inválido.');
+ if(role==='child'&&guardianIds.some(id=>!(isAdmin()?(id===user.uid||people.some(p=>p.uid===id&&(p.role==='guardian'||p.role==='admin')&&p.status==='active')):id===user.uid)))throw Error('Encarregado inválido.');
  if(people.some(p=>normalize(p.email)===email))throw Error('Este email já tem uma conta registada.');
  await setDoc(doc(db,'invitations',email),{name,email,role,guardianIds,createdBy:user.uid,createdAt:serverTimestamp()});
  notice('Convite guardado. A pessoa já pode criar a sua conta com este email.');await load();render();

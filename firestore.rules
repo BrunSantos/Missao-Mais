@@ -52,10 +52,16 @@ service cloud.firestore {
      && (request.resource.data.frequency != 'daily' || request.resource.data.weekdays.size() > 0)
      && request.resource.data.weekdays.hasOnly([0,1,2,3,4,5,6])
      && request.resource.data.deadline is string && request.resource.data.createdAt == request.time;
-   allow update: if adultFor(resource.data.childId)
-     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
-     && request.resource.data.active is bool
-     && request.resource.data.active != resource.data.active;
+   allow update: if adultFor(resource.data.childId) && (
+     (resource.data.get('deleted',false) == false
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+      && request.resource.data.active is bool
+      && request.resource.data.active != resource.data.active)
+     || (resource.data.get('deleted',false) == false
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','deleted'])
+      && request.resource.data.deleted == true
+      && request.resource.data.active == false)
+   );
    allow delete: if false;
   }
   match /claims/{id} {

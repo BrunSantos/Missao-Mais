@@ -36,10 +36,36 @@ service cloud.firestore {
    allow update: if admin() || (signed() && resource.data.role == 'child' && resource.data.status == 'pending' && request.auth.uid in resource.data.guardianIds && exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) && profile(request.auth.uid).status == 'active' && profile(request.auth.uid).role == 'guardian' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','approvedBy','approvedAt']) && request.resource.data.status == 'active' && request.resource.data.approvedBy == request.auth.uid && request.resource.data.approvedAt == request.time) || (guardianOf(uid) && resource.data.role == 'child' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','schoolYear','guardianIds']) && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100 && request.resource.data.get('schoolYear','') is string && request.resource.data.get('schoolYear','').size() <= 40 && (request.resource.data.guardianIds == resource.data.guardianIds || (resource.data.get('accountType','') == 'managed' && request.resource.data.guardianIds == resource.data.guardianIds.removeAll([request.auth.uid])))) || (guardianOf(uid) && resource.data.role == 'child' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoData','photoPath']) && (!('photoData' in request.resource.data) || (request.resource.data.photoData is string && request.resource.data.photoData.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$') && request.resource.data.photoData.size() <= 100000)) && !('photoPath' in request.resource.data));
    allow delete: if admin();
   }
+   // Horários personalizados da v35: apenas sete dias e horas válidas.
+   function validClock(value) {
+     return value is string && (value == '' || value.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'));
+   }
+   function validDaySchedule(day) {
+     return day is map && day.keys().hasOnly(['start','end','period'])
+       && day.keys().hasAll(['start','end','period'])
+       && validClock(day.start) && validClock(day.end)
+       && day.period in ['Manhã','Tarde','Noite']
+       && (day.start == '' || day.end == '' || day.end > day.start);
+   }
+   function validDaySchedules(days) {
+     return days is map && days.keys().hasOnly(['0','1','2','3','4','5','6'])
+       && (!('0' in days) || validDaySchedule(days['0']))
+       && (!('1' in days) || validDaySchedule(days['1']))
+       && (!('2' in days) || validDaySchedule(days['2']))
+       && (!('3' in days) || validDaySchedule(days['3']))
+       && (!('4' in days) || validDaySchedule(days['4']))
+       && (!('5' in days) || validDaySchedule(days['5']))
+       && (!('6' in days) || validDaySchedule(days['6']));
+   }
+   function validCustomSchedule(data) {
+     return data.customSchedule is bool && validClock(data.scheduleEnd)
+       && validDaySchedules(data.daySchedules)
+       && (data.customSchedule || data.daySchedules.size() == 0);
+   }
   match /tasks/{id} {
    allow get, list: if admin() || (signed() && (own(resource.data.childId) || guardianOf(resource.data.childId)));
    allow create: if adultFor(request.resource.data.childId) && activeChild(request.resource.data.childId)
-     && request.resource.data.keys().hasOnly(['title','description','category','period','taskTime','approvalMode','points','frequency','weekdays','deadline','childId','active','createdBy','createdAt'])
+     && request.resource.data.keys().hasOnly(['title','description','category','period','taskTime','approvalMode','points','frequency','weekdays','deadline','childId','active','createdBy','createdAt','scheduleEnd','customSchedule','daySchedules'])
      && request.resource.data.active == true
      && request.resource.data.createdBy == request.auth.uid
      && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
@@ -47,6 +73,7 @@ service cloud.firestore {
      && request.resource.data.category in ['Responsabilidade','Tarefa doméstica']
      && request.resource.data.period in ['Manhã','Tarde','Depois da escola','Noite','Outro']
      && request.resource.data.taskTime is string && (request.resource.data.taskTime == '' || request.resource.data.taskTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'))
+     && validCustomSchedule(request.resource.data)
      && request.resource.data.approvalMode in ['approval','automatic','parent']
      && request.resource.data.points is int && request.resource.data.points >= 1 && request.resource.data.points <= 500
      && request.resource.data.frequency in ['daily','weekly','once']
@@ -56,13 +83,14 @@ service cloud.firestore {
      && request.resource.data.deadline is string && request.resource.data.createdAt == request.time;
    allow update: if adultFor(resource.data.childId) && (
      (resource.data.get('deleted',false) == false
-      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','description','category','period','taskTime','approvalMode','points','frequency','weekdays','deadline'])
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','description','category','period','taskTime','approvalMode','points','frequency','weekdays','deadline','scheduleEnd','customSchedule','daySchedules'])
       && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
       && request.resource.data.description is string && request.resource.data.description.size() <= 600
       && request.resource.data.category in ['Responsabilidade','Tarefa doméstica']
       && request.resource.data.period in ['Manhã','Tarde','Noite','Depois da escola','Outro']
       && request.resource.data.taskTime is string && (request.resource.data.taskTime == '' || request.resource.data.taskTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'))
-      && request.resource.data.approvalMode in ['approval','automatic','parent']
+      && validCustomSchedule(request.resource.data)
+     && request.resource.data.approvalMode in ['approval','automatic','parent']
       && request.resource.data.points is int && request.resource.data.points >= 1 && request.resource.data.points <= 500
       && request.resource.data.frequency in ['daily','weekly','once']
       && request.resource.data.weekdays is list && request.resource.data.weekdays.size() <= 7

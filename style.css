@@ -54,3 +54,5 @@
 @media(max-width:650px){.app-toast{left:50%!important;right:auto!important;top:50%!important}}
 
 .day-schedule-row{display:grid;grid-template-columns:65px 1fr 1fr;gap:12px;align-items:end;margin:10px 0}.day-schedule-row label{font-size:.9rem}.day-schedule-row input{width:100%}@media(max-width:500px){.day-schedule-row{grid-template-columns:42px 1fr 1fr;gap:6px}}
+
+.copy-pickers{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.copy-choice{margin:7px 0}.copy-draft{display:grid;gap:12px}.copy-draft .day-schedule-row{display:grid;grid-template-columns:70px 1fr 1fr;gap:8px}.copy-draft label{min-width:0}#copyDraftArea{margin-top:18px}#copyDraftArea .card{border:1px solid #b8d8ce;margin:12px 0}

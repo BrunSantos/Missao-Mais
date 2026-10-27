@@ -1,1 +1,0 @@
-Missão+ v26: edição de nome/ano, desassociação de perfis geridos, eliminação pelo administrador apenas quando não existem registos relacionados. Contas com email não são eliminadas nem desassociadas por este fluxo. A associação de email a perfis existentes e PIN não estão implementados. Comparar firestore.rules com regras publicadas antes de aplicar.

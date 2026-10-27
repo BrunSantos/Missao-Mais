@@ -1,0 +1,5 @@
+Missão+ v27 — correção da apresentação dos controlos de gestão de filhos.
+O index.html força o carregamento do novo app.js e style.css (evita cache da v25).
+Editar perfil está disponível para filhos associados; desassociar e eliminar apenas para perfis geridos sem conta Firebase Auth.
+Eliminar bloqueado se existirem tarefas ou histórico; não apaga contas Firebase Auth.
+Preservar a pasta .git e os dados Firebase.

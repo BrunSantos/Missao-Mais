@@ -52,3 +52,5 @@
 .app-toast{position:fixed!important;inset:auto!important;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important;z-index:100001!important;width:min(440px,calc(100vw - 32px))!important;max-width:none!important;min-height:90px;align-items:center!important;padding:22px 24px!important;box-shadow:0 0 0 100vmax rgba(12,35,30,.25),0 18px 55px rgba(0,0,0,.22)!important;font-size:16px}
 .app-toast .toast-close{margin-left:auto;flex-shrink:0;cursor:pointer}
 @media(max-width:650px){.app-toast{left:50%!important;right:auto!important;top:50%!important}}
+
+.day-schedule-row{display:grid;grid-template-columns:65px 1fr 1fr;gap:12px;align-items:end;margin:10px 0}.day-schedule-row label{font-size:.9rem}.day-schedule-row input{width:100%}@media(max-width:500px){.day-schedule-row{grid-template-columns:42px 1fr 1fr;gap:6px}}

@@ -17,7 +17,16 @@ service cloud.firestore {
   match /profiles/{uid} {
    allow get: if admin() || own(uid) || guardianOf(uid);
    allow list: if admin() || (signed() && resource.data.role == 'child' && request.auth.uid in resource.data.guardianIds);
-   allow create: if admin() || (own(uid) && invited()
+   allow create: if admin() || (signed() && !own(uid)
+     && exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
+     && profile(request.auth.uid).role == 'guardian' && profile(request.auth.uid).status == 'active'
+     && request.resource.data.keys().hasOnly(['name','role','status','guardianIds','schoolYear','accountType','createdBy','createdAt'])
+     && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100
+     && request.resource.data.role == 'child' && request.resource.data.status == 'active'
+     && request.resource.data.accountType == 'managed' && request.resource.data.createdBy == request.auth.uid
+     && request.resource.data.guardianIds == [request.auth.uid]
+     && request.resource.data.schoolYear is string && request.resource.data.createdAt == request.time)
+     || (own(uid) && invited()
      && request.resource.data.keys().hasOnly(['name','email','role','status','guardianIds','balance','createdAt'])
      && request.resource.data.email == request.auth.token.email
      && request.resource.data.name == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.name

@@ -1,13 +1,53 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import {getFirestore,doc,getDoc,setDoc,collection,getDocs,query,where,updateDoc,deleteDoc,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import {getFirestore,doc,getDoc,setDoc,collection,getDocs,query,where,updateDoc,deleteDoc,deleteField,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import {getStorage,ref as storageRef,uploadBytes,deleteObject,getDownloadURL} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 import {firebaseConfig,ADMIN_UID} from './firebase-settings-v3.js';
-const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),storage=getStorage(app),$=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').trim().toLowerCase();
 let user=null,profile=null,people=[],invites=[],tasks=[],claims=[],rewards=[],redemptions=[],tab='inicio';
 const isAdmin=()=>user?.uid===ADMIN_UID;
 const notice=s=>{$('feedback').textContent=s};
+const avatarCache=new Map();
+const avatarMarkup=(p,cls='')=>`<span class="kid-avatar ${cls}" data-avatar-id="${esc(p.uid)}" aria-label="Fotografia de ${esc(p.name)}">${esc((p.name||'?').trim().charAt(0).toUpperCase())}</span>`;
+async function hydrateAvatars(){
+ const targets=[...document.querySelectorAll('[data-avatar-id]')];
+ await Promise.all([...new Set(targets.map(el=>el.dataset.avatarId))].map(async id=>{
+  const p=people.find(x=>x.uid===id);if(!p?.photoPath)return;
+  try{
+   const key=id+'|'+p.photoPath;
+   let url=avatarCache.get(key);
+   if(!url){url=await getDownloadURL(storageRef(storage,p.photoPath));avatarCache.set(key,url);}
+   document.querySelectorAll('[data-avatar-id]').forEach(el=>{if(el.dataset.avatarId===id){el.textContent='';const img=document.createElement('img');img.src=url;img.alt='';img.referrerPolicy='no-referrer';el.append(img);}});
+  }catch(err){console.warn('Fotografia indisponível',err.code);}
+ }));
+}
+function allowedPhoto(id){return !!user&&(isAdmin()||(profile?.role==='guardian'&&profile?.status==='active'&&myKids().some(k=>k.uid===id)));}
+async function processPhoto(file,id){
+ if(!allowedPhoto(id))throw Error('Sem autorização para alterar esta fotografia.');
+ if(!file||!file.type.startsWith('image/'))throw Error('Seleciona uma imagem válida.');
+ if(file.size>12*1024*1024)throw Error('A imagem deve ter menos de 12 MB.');
+ const bitmap=await createImageBitmap(file).catch(()=>null);
+ const img=bitmap||await new Promise((resolve,reject)=>{const im=new Image(),url=URL.createObjectURL(file);im.onload=()=>{URL.revokeObjectURL(url);resolve(im)};im.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Não foi possível abrir a imagem.'))};im.src=url});
+ const canvas=document.createElement('canvas');canvas.width=320;canvas.height=320;
+ const ctx=canvas.getContext('2d'),side=Math.min(img.width,img.height);
+ ctx.drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,320,320);
+ if(bitmap)bitmap.close();
+ const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.82));
+ if(!blob)throw Error('Não foi possível preparar a fotografia.');
+ const path=`child-photos/${id}/profile.jpg`;
+ await uploadBytes(storageRef(storage,path),blob,{contentType:'image/jpeg',cacheControl:'no-cache'});
+ await updateDoc(doc(db,'profiles',id),{photoPath:path});
+ avatarCache.clear();await load();render();notice('Fotografia atualizada.');
+}
+async function removePhoto(id){
+ if(!allowedPhoto(id))throw Error('Sem autorização.');
+ const p=people.find(x=>x.uid===id);if(!p?.photoPath)return;
+ await deleteObject(storageRef(storage,p.photoPath)).catch(err=>{if(err.code!=='storage/object-not-found')throw err});
+ await updateDoc(doc(db,'profiles',id),{photoPath:deleteField()});
+ avatarCache.clear();await load();render();notice('Fotografia removida.');
+}
 const personName=id=>people.find(p=>p.uid===id)?.name||'Conta pendente';
 const associated=id=>isAdmin()||(profile?.role==='guardian'&&profile?.status==='active'&&(people.some(p=>p.uid===id&&p.role==='child'&&(p.guardianIds||[]).includes(user.uid))));
 const myKids=()=>people.filter(p=>p.role==='child'&&p.status==='active'&&(isAdmin()||(p.guardianIds||[]).includes(user.uid)));
@@ -69,9 +109,22 @@ function render(){
  $('identity').textContent=profile?.name||user.email;
  const allowed=isAdmin()?['inicio','pessoas','tarefas','aprovações','recompensas']:profile?.status==='active'&&profile?.role==='guardian'?['inicio','tarefas','aprovações','recompensas']:profile?.status==='active'&&profile?.role==='child'?['inicio','tarefas','recompensas']:['inicio'];
  if(!allowed.includes(tab))tab='inicio';
- $('tabs').innerHTML=allowed.map(t=>`<button class="${tab===t?'':'alt'}" data-tab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('');
+ $('tabs').innerHTML=allowed.map(t=>`<button class="${tab===t?'':'alt'}" data-tab="${t}">${t==='pessoas'?'Família':t[0].toUpperCase()+t.slice(1)}</button>`).join('');
  $('screen').innerHTML=tab==='pessoas'?members():tab==='inicio'?home():tab==='tarefas'?taskScreen():tab==='aprovações'?approvalScreen():rewardScreen();
  if(tab==='tarefas')filterPresetGroup();
+ hydrateAvatars();
+}
+function weeklyProgress(kidId){
+ const now=new Date(),monday=new Date(now.getFullYear(),now.getMonth(),now.getDate()-((now.getDay()+6)%7));
+ const sunday=new Date(monday);sunday.setDate(sunday.getDate()+7);
+ const dated=claims.filter(c=>c.childId===kidId).filter(c=>{
+   const stamp=c.submittedAt||c.reviewedAt;
+   const date=stamp?.toDate?.();
+   return date instanceof Date&&date>=monday&&date<sunday;
+ });
+ const approved=dated.filter(c=>c.status==='approved');
+ const points=approved.reduce((total,c)=>total+Number(c.points||0),0);
+ return {completed:approved.length,points,pending:dated.filter(c=>c.status==='pending').length};
 }
 function home(){
  const adult=isAdmin()||profile?.role==='guardian';
@@ -82,7 +135,8 @@ function home(){
  const cards=kids.map(k=>{
    const kidTasks=tasks.filter(t=>t.childId===k.uid&&activeTask(t)&&scheduledToday(t));
    const pending=pendingClaims.filter(c=>c.childId===k.uid).length;
-   return `<article class="card"><h3>${esc(k.name)}</h3><div class="points">${score(k.uid)} ⭐</div><p class="muted">${kidTasks.length} tarefas previstas hoje · ${pending} por aprovar</p></article>`;
+   const week=weeklyProgress(k.uid);
+   return `<article class="card"><h3 class="kid-heading">${avatarMarkup(k)} ${esc(k.name)}</h3>${adult&&allowedPhoto(k.uid)?`<div class="photo-actions"><label class="photo-button">📷 Câmara<input type="file" accept="image/*" capture="environment" data-photo="${esc(k.uid)}"></label><label class="photo-button">🖼️ Galeria<input type="file" accept="image/*" data-photo="${esc(k.uid)}"></label>${k.photoPath?`<button type="button" class="alt" data-action="removePhoto" data-id="${esc(k.uid)}">Remover foto</button>`:}</div>`:}<div class="points">${score(k.uid)} ⭐</div><p class="muted">${kidTasks.length} tarefas previstas hoje · ${pending} por aprovar</p><div class="week-stats"><b>Esta semana</b><span>${week.completed} tarefas aprovadas</span><span>+${week.points} ⭐ conquistados</span>${week.pending?`<span>${week.pending} a aguardar aprovação</span>`:''}</div></article>`;
  }).join('');
  if(!profile||profile.status!=='active')return `<h2>Bem-vindo à Missão+</h2><p>${!profile?'Ainda não existe um convite para este email. Pede ao administrador que te adicione.':'A tua conta foi criada. Aguarda a autorização do administrador.'}</p>`;
  const summary=adult?`<div class="grid"><article class="card"><h3>Tarefas por aprovar</h3><div class="points">${pendingClaims.length}</div></article><article class="card"><h3>Recompensas pedidas</h3><div class="points">${pendingRewards.length}</div></article><article class="card"><h3>Filhos associados</h3><div class="points">${kids.length}</div></article></div>`:'';
@@ -95,8 +149,8 @@ function members(){
  const children=people.filter(p=>p.role==='child');
  const childOptions=guardians.map(g=>`<label class="check"><input type="checkbox" name="guardian" value="${esc(g.uid)}"> ${esc(g.name)} (${esc(g.email)})</label>`).join('');
  const invitations=invites.map(i=>`<article class="item"><div><b>${esc(i.name)}</b><p class="muted">${esc(i.email)} · ${i.role==='guardian'?'Encarregado':'Filho'} · Convite criado</p></div><button class="alt" data-action="deleteInvite" data-id="${esc(i.email)}">Remover convite</button></article>`).join('');
- const accounts=people.filter(p=>p.uid!==ADMIN_UID).map(p=>`<article class="item"><div><b>${esc(p.name)}</b><p class="muted">${esc(p.email)} · ${p.role==='guardian'?'Encarregado':'Filho'} · ${p.status==='active'?'Ativo':'Aguarda aprovação'}</p>${p.role==='child'?`<p class="muted">Encarregados: ${(p.guardianIds||[]).map(id=>esc(personName(id))).join(', ')||'Nenhum'}</p>`:''}</div>${p.status==='pending'?`<button data-action="approve" data-id="${esc(p.uid)}">Autorizar</button>`:''}</article>`).join('');
- return `<h2>Gestão da família</h2><p class="muted">Só o administrador pode convidar e autorizar contas. Os convidados criam a própria password. Não é necessário copiar UID do Firebase.</p>
+ const accounts=people.filter(p=>p.uid!==ADMIN_UID).map(p=>`<article class="item"><div>${p.role==='child'?avatarMarkup(p):''}<b>${esc(p.name)}</b><p class="muted">${esc(p.email)} · ${p.role==='guardian'?'Encarregado':'Filho'} · ${p.status==='active'?'Ativo':'Aguarda aprovação'}</p>${p.role==='child'?`<p class="muted">Encarregados: ${(p.guardianIds||[]).map(id=>esc(personName(id))).join(', ')||'Nenhum'}</p><div class="photo-actions"><label class="photo-button">📷 Câmara<input type="file" accept="image/*" capture="environment" data-photo="${esc(p.uid)}"></label><label class="photo-button">🖼️ Galeria<input type="file" accept="image/*" data-photo="${esc(p.uid)}"></label>${p.photoPath?`<button type="button" class="alt" data-action="removePhoto" data-id="${esc(p.uid)}">Remover foto</button>`:''}</div>`:''}</div>${p.status==='pending'?`<button data-action="approve" data-id="${esc(p.uid)}">Autorizar</button>`:''}</article>`).join('');
+ return `<h2>Família e acessos</h2><p class="muted">Só o administrador pode convidar e autorizar contas. Os convidados criam a própria password. Não é necessário copiar UID do Firebase.</p>
  <div class="grid"><article class="card"><h3>1. Adicionar encarregado</h3><form id="guardianForm"><label>Nome<input name="name" required maxlength="100"></label><label>Email<input name="email" type="email" required></label><button>Criar convite</button></form></article>
  <article class="card"><h3>2. Adicionar filho</h3>${guardians.length?`<form id="childForm"><label>Nome<input name="name" required maxlength="100"></label><label>Email para iniciar sessão<input name="email" type="email" required></label><fieldset><legend>Associar aos encarregados ativos</legend>${childOptions}</fieldset><button>Criar convite do filho</button></form>`:'<p>Autoriza primeiro pelo menos um encarregado de educação.</p>'}</article></div>
  <article class="card"><h3>Convites</h3>${invitations||'<p class="muted">Ainda não existem convites.</p>'}<p class="muted">Partilha com cada pessoa o endereço da Missão+ e pede-lhe que clique em «Criar conta» com o email convidado. O convite não envia emails automaticamente.</p></article>
@@ -231,9 +285,9 @@ $('resetPassword').addEventListener('click',async()=>{const email=$('email').val
 $('register').addEventListener('click',async()=>{try{notice('A criar conta…');await createUserWithEmailAndPassword(auth,$('email').value,$('password').value);notice('Conta criada. Aguarda autorização do administrador.');}catch(err){notice('Não foi possível criar conta: '+err.message)}});
 $('logout').addEventListener('click',()=>signOut(auth));
 $('tabs').addEventListener('click',e=>{const t=e.target.closest('[data-tab]');if(t){tab=t.dataset.tab;render();if(tab==='tarefas')applyTaskFilters()}});
-$('screen').addEventListener('change',e=>{if(e.target.id==='taskPresetGroup'){if($('taskPresetSearch'))$('taskPresetSearch').value='';filterPresetGroup(false);}if(e.target.id==='taskStatusFilter')applyTaskFilters();if(e.target.id==='taskFrequency'&&$('weekdayField'))$('weekdayField').hidden=e.target.value!=='daily';if(e.target.id==='editTaskFrequency'&&$('editWeekdayField'))$('editWeekdayField').hidden=e.target.value!=='daily';});
+$('screen').addEventListener('change',async e=>{if(e.target.matches('[data-photo]')){try{notice('A guardar fotografia…');await processPhoto(e.target.files?.[0],e.target.dataset.photo);}catch(err){notice('Não foi possível guardar: '+err.message)}return;}if(e.target.id==='taskPresetGroup'){if($('taskPresetSearch'))$('taskPresetSearch').value='';filterPresetGroup(false);}if(e.target.id==='taskStatusFilter')applyTaskFilters();if(e.target.id==='taskFrequency'&&$('weekdayField'))$('weekdayField').hidden=e.target.value!=='daily';if(e.target.id==='editTaskFrequency'&&$('editWeekdayField'))$('editWeekdayField').hidden=e.target.value!=='daily';});
 $('screen').addEventListener('input',e=>{if(e.target.id==='taskSearch')applyTaskFilters();if(e.target.id==='taskPresetSearch'){if($('taskTitle'))$('taskTitle').value=e.target.value;filterPresetGroup(true);}});
 $('screen').addEventListener('submit',async e=>{if(!['guardianForm','childForm','taskForm','editTaskForm','rewardForm'].includes(e.target.id))return;e.preventDefault();try{if(e.target.id==='taskForm')await createTask(e.target);else if(e.target.id==='editTaskForm')await saveTaskEdit(e.target);else if(e.target.id==='rewardForm')await createReward(e.target);else await invite(e.target,e.target.id==='guardianForm'?'guardian':'child')}catch(err){notice(err.message)}});
-$('screen').addEventListener('click',async e=>{const go=e.target.closest('[data-go]');if(go){tab=go.dataset.go;render();if(tab==='tarefas')applyTaskFilters();return;}if(e.target.closest('[data-preset-index]')){choosePreset(e.target.closest('[data-preset-index]').dataset.presetIndex);return;}if(e.target.id==='taskComboToggle'){filterPresetGroup($('presetChoices')?.hidden);$('taskPresetSearch')?.focus();return;}if(e.target.id==='taskPresetSearch'){filterPresetGroup(true);return;}const btn=e.target.closest('[data-action]');if(!btn)return;try{btn.disabled=true;if(btn.dataset.action==='refreshData'){await load();render();notice('Dados atualizados.');return;}if(btn.dataset.action==='cancelEdit'){$('editTaskContainer').innerHTML='';return;}if(btn.dataset.action==='editTask'){openTaskEditor(btn.dataset.id);btn.disabled=false;return;}if(['requestReward','archiveReward','approveReward','rejectReward'].includes(btn.dataset.action)){await rewardAction(btn.dataset.action,btn.dataset.id);return;}if(['submitTask','approveClaim','rejectClaim'].includes(btn.dataset.action)){await taskAction(btn.dataset.action,btn.dataset.id);return;}if(btn.dataset.action==='duplicateTask'){const t=tasks.find(t=>t.id===btn.dataset.id);if(!t||!(isAdmin()||myKids().some(k=>k.uid===t.childId)))throw Error('Sem autorização.');if(!confirm('Criar uma cópia de «'+t.title+'» para '+personName(t.childId)+'?')){btn.disabled=false;return;}await setDoc(doc(collection(db,'tasks')),{title:t.title,description:t.description||'',category:t.category,period:t.period,points:Number(t.points),frequency:t.frequency,weekdays:Array.isArray(t.weekdays)?t.weekdays:[],deadline:t.deadline||'',childId:t.childId,active:true,createdBy:user.uid,createdAt:serverTimestamp()});await load();render();applyTaskFilters();notice('Cópia criada. Podes arquivar a original quando quiseres.');return;}if(btn.dataset.action==='restoreTask'){const t=tasks.find(t=>t.id===btn.dataset.id);if(!t||activeTask(t)||!(isAdmin()||myKids().some(k=>k.uid===t.childId)))throw Error('Sem autorização.');await updateDoc(doc(db,'tasks',t.id),{active:true});await load();render();applyTaskFilters();notice('Tarefa reativada.');return;}if(btn.dataset.action==='archiveTask'){const t=tasks.find(t=>t.id===btn.dataset.id);if(!t||!activeTask(t)||!(isAdmin()||myKids().some(k=>k.uid===t.childId)))throw Error('Sem autorização.');if(!confirm('Arquivar esta tarefa? O histórico e os pontos aprovados serão mantidos.')){btn.disabled=false;return;}await updateDoc(doc(db,'tasks',t.id),{active:false});await load();render();applyTaskFilters();notice('Tarefa arquivada.');return;}if(!isAdmin())throw Error('Sem autorização.');if(btn.dataset.action==='approve')await updateDoc(doc(db,'profiles',btn.dataset.id),{status:'active',approvedBy:user.uid,approvedAt:serverTimestamp()});if(btn.dataset.action==='deleteInvite')await deleteDoc(doc(db,'invitations',btn.dataset.id));await load();render();notice('Alteração guardada.')}catch(err){notice(err.message);btn.disabled=false}});
+$('screen').addEventListener('click',async e=>{const go=e.target.closest('[data-go]');if(go){tab=go.dataset.go;render();if(tab==='tarefas')applyTaskFilters();return;}if(e.target.closest('[data-preset-index]')){choosePreset(e.target.closest('[data-preset-index]').dataset.presetIndex);return;}if(e.target.id==='taskComboToggle'){filterPresetGroup($('presetChoices')?.hidden);$('taskPresetSearch')?.focus();return;}if(e.target.id==='taskPresetSearch'){filterPresetGroup(true);return;}const btn=e.target.closest('[data-action]');if(!btn)return;try{btn.disabled=true;if(btn.dataset.action==='removePhoto'){if(confirm('Remover a fotografia deste filho?'))await removePhoto(btn.dataset.id);else btn.disabled=false;return;}if(btn.dataset.action==='refreshData'){await load();render();notice('Dados atualizados.');return;}if(btn.dataset.action==='cancelEdit'){$('editTaskContainer').innerHTML='';return;}if(btn.dataset.action==='editTask'){openTaskEditor(btn.dataset.id);btn.disabled=false;return;}if(['requestReward','archiveReward','approveReward','rejectReward'].includes(btn.dataset.action)){await rewardAction(btn.dataset.action,btn.dataset.id);return;}if(['submitTask','approveClaim','rejectClaim'].includes(btn.dataset.action)){await taskAction(btn.dataset.action,btn.dataset.id);return;}if(btn.dataset.action==='duplicateTask'){const t=tasks.find(t=>t.id===btn.dataset.id);if(!t||!(isAdmin()||myKids().some(k=>k.uid===t.childId)))throw Error('Sem autorização.');if(!confirm('Criar uma cópia de «'+t.title+'» para '+personName(t.childId)+'?')){btn.disabled=false;return;}await setDoc(doc(collection(db,'tasks')),{title:t.title,description:t.description||'',category:t.category,period:t.period,points:Number(t.points),frequency:t.frequency,weekdays:Array.isArray(t.weekdays)?t.weekdays:[],deadline:t.deadline||'',childId:t.childId,active:true,createdBy:user.uid,createdAt:serverTimestamp()});await load();render();applyTaskFilters();notice('Cópia criada. Podes arquivar a original quando quiseres.');return;}if(btn.dataset.action==='restoreTask'){const t=tasks.find(t=>t.id===btn.dataset.id);if(!t||activeTask(t)||!(isAdmin()||myKids().some(k=>k.uid===t.childId)))throw Error('Sem autorização.');await updateDoc(doc(db,'tasks',t.id),{active:true});await load();render();applyTaskFilters();notice('Tarefa reativada.');return;}if(btn.dataset.action==='archiveTask'){const t=tasks.find(t=>t.id===btn.dataset.id);if(!t||!activeTask(t)||!(isAdmin()||myKids().some(k=>k.uid===t.childId)))throw Error('Sem autorização.');if(!confirm('Arquivar esta tarefa? O histórico e os pontos aprovados serão mantidos.')){btn.disabled=false;return;}await updateDoc(doc(db,'tasks',t.id),{active:false});await load();render();applyTaskFilters();notice('Tarefa arquivada.');return;}if(!isAdmin())throw Error('Sem autorização.');if(btn.dataset.action==='approve')await updateDoc(doc(db,'profiles',btn.dataset.id),{status:'active',approvedBy:user.uid,approvedAt:serverTimestamp()});if(btn.dataset.action==='deleteInvite')await deleteDoc(doc(db,'invitations',btn.dataset.id));await load();render();notice('Alteração guardada.')}catch(err){notice(err.message);btn.disabled=false}});
 document.addEventListener('click',e=>{if($('taskCombo')&&!e.target.closest('#taskCombo'))filterPresetGroup(false);});
 onAuthStateChanged(auth,async current=>{user=current;profile=null;people=[];invites=[];try{if(user){await bootstrap();await load();}render();}catch(err){render();notice('Erro ao carregar os dados: '+err.message)}});

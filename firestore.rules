@@ -23,7 +23,8 @@ service cloud.firestore {
      && request.resource.data.role == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.role
      && request.resource.data.guardianIds == get(/databases/$(database)/documents/invitations/$(request.auth.token.email)).data.guardianIds
      && request.resource.data.status == 'pending' && request.resource.data.balance == 0);
-   allow update, delete: if admin();
+   allow update: if admin() || (guardianOf(uid) && resource.data.role == 'child' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoPath']) && (!('photoPath' in request.resource.data) || request.resource.data.photoPath == 'child-photos/' + uid + '/profile.jpg'));
+   allow delete: if admin();
   }
   match /tasks/{id} {
    allow get, list: if admin() || (signed() && (own(resource.data.childId) || guardianOf(resource.data.childId)));

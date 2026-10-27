@@ -1,0 +1,9 @@
+MISSÃO+ V20 — FOTOGRAFIAS
+
+1. No Firebase Console, confirma que o Firebase Storage está ativado no projeto atual. Poderá exigir um plano com faturação.
+2. Em Storage > Rules, revê e publica as regras de storage.rules. ATENÇÃO: substitui apenas se não existirem outras regras necessárias no projeto; nesse caso integra o bloco child-photos nas regras existentes.
+3. Em Firestore Database > Rules, integra a alteração de profiles em firestore.rules, preservando as regras em produção e publicando depois.
+4. Atualiza os ficheiros do repositório existente no GitHub Desktop (sem apagar .git), faz Commit e Push.
+5. Testa com uma conta de encarregado e com uma conta de filho.
+
+Atenção: o Firebase Storage fornece URLs de download com token. Quem obtiver esse URL poderá aceder à imagem até o token ser revogado, mesmo que as regras de Storage exijam autenticação para obter novos URLs. Não partilhes esses URLs.

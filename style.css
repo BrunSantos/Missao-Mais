@@ -45,3 +45,10 @@
 .app-toast.toast-working{background:#eef5fb;color:#285577;border-color:#b7d1e7}
 .toast-close{background:transparent;color:inherit;border:0;padding:0 2px;font-size:24px;line-height:1;min-width:24px}
 @media(max-width:650px){.app-toast{left:12px;right:12px;top:12px;max-width:none}}
+
+/* v32: notificações em pop-up central, nunca em texto vermelho permanente */
+#feedback,.save-feedback{display:none!important}
+.app-toast[hidden]{display:none!important}
+.app-toast{position:fixed!important;inset:auto!important;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important;z-index:100001!important;width:min(440px,calc(100vw - 32px))!important;max-width:none!important;min-height:90px;align-items:center!important;padding:22px 24px!important;box-shadow:0 0 0 100vmax rgba(12,35,30,.25),0 18px 55px rgba(0,0,0,.22)!important;font-size:16px}
+.app-toast .toast-close{margin-left:auto;flex-shrink:0;cursor:pointer}
+@media(max-width:650px){.app-toast{left:50%!important;right:auto!important;top:50%!important}}

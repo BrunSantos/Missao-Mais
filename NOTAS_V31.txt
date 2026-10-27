@@ -1,1 +1,0 @@
-Missão+ v31 — Notificações globais de gravação.\nSubstitui mensagens vermelhas fixas por pop-ups de sucesso/erro.\nO sucesso só é apresentado depois da operação Firebase concluída.\nNão altera as regras Firestore nem os dados existentes.\n

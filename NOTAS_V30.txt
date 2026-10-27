@@ -1,4 +1,0 @@
-Missão+ v30 — Diagnóstico de gravação de tarefas
-Mostra o estado da gravação junto do botão Guardar alterações, com erro detalhado do Firebase.
-Se aparecer permission-denied, comparar as regras publicadas no Firebase com firestore.rules; não substituir regras personalizadas sem revisão.
-Não altera dados existentes.

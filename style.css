@@ -70,3 +70,24 @@
 
 /* v42: alertas dentro da aplicação */
 .nav-alert{display:inline-flex;min-width:21px;height:21px;align-items:center;justify-content:center;border-radius:14px;background:#a04431;color:white;font-weight:700;font-size:12px;padding:0 5px;margin-left:5px}.attention-summary{border:2px solid #dfc4a6}.attention-summary p{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+
+/* Menus compactos no painel inicial */
+.home-mobile-menu{display:none}
+.photo-menu{margin:12px 0}
+.photo-menu>summary,.home-mobile-menu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 14px;border-radius:11px;background:#dff1eb;color:#145c53;font-weight:650;min-height:44px}
+.photo-menu>summary::-webkit-details-marker,.home-mobile-menu>summary::-webkit-details-marker{display:none}
+.menu-chevron{font-size:20px;line-height:1;transition:transform .15s}
+details[open]>summary .menu-chevron{transform:rotate(180deg)}
+.photo-menu .photo-actions{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+.photo-menu .photo-actions label{margin:0}
+@media(max-width:650px){
+ .home-desktop-actions{display:none}
+ .home-mobile-menu{display:block;margin-top:16px}
+ .home-mobile-menu>summary{width:100%;background:#126c62;color:white;padding:13px 16px}
+ .home-menu-items{display:grid;grid-template-columns:1fr;gap:8px;padding:12px 0 2px}
+ .home-menu-items button{width:100%;text-align:left;min-height:46px}
+ .photo-menu>summary{font-size:14px;min-height:40px;padding:7px 12px}
+ .photo-menu .photo-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .photo-menu .photo-actions .photo-button{font-size:14px;text-align:center;padding:9px 6px}
+ .kid-heading{gap:12px}
+}

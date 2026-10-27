@@ -1,0 +1,2 @@
+Missão+ v40 — Imagem genérica para tarefas sem ilustração específica.
+A deteção por nome mantém-se. As tarefas não reconhecidas usam illustrations/geral.svg. Se uma imagem específica falhar, também é usada a genérica. Sem alterações ao Firebase.

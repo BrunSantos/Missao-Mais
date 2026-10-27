@@ -1,0 +1,1 @@
+Missão+ v39 — Ilustrações por tarefa no Painel. Imagens SVG locais, sem alterações ao Firebase. O tipo de imagem é identificado pelo nome da tarefa; tarefas sem correspondência apresentam uma estrela.\n
